@@ -1,0 +1,6 @@
+{
+  "name": "crx",
+  "description": "Personal CodeRabbit helpers — single and batched finding fix flows.",
+  "version": "0.1.0",
+  "author": { "name": "Chris Powell" }
+}
