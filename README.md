@@ -4,50 +4,26 @@ Personal Claude Code marketplace for managing and deploying skills across work a
 
 This repository is a [Claude Code plugin marketplace](https://docs.claude.com/en/docs/claude-code/plugins) — it bundles plugins (collections of skills, agents, commands, and hooks) so they can be installed in any Claude Code environment with a single command.
 
-## Structure
+> **Agents:** see [`AGENTS.md`](./AGENTS.md) for the maintenance rules and the per-platform install procedure you should follow when a human asks you to deploy these skills.
 
-```
-ai-skills/
-├── .claude-plugin/
-│   └── marketplace.json        # marketplace manifest
-├── plugins/
-│   └── <plugin-name>/
-│       ├── .claude-plugin/
-│       │   └── plugin.json     # plugin manifest
-│       ├── README.md
-│       └── skills/
-│           └── <skill-name>/
-│               └── SKILL.md    # skill with frontmatter
-└── README.md
-```
-
-Each plugin lives under `plugins/<plugin-name>/` and follows the [skill-creator](https://github.com/anthropics/skills) layout. Skills are picked up from `skills/<skill-name>/SKILL.md` and exposed as slash commands of the form `/<plugin>:<skill>`.
-
-## Plugins
+## What's in here
 
 | Plugin | Description |
 |--------|-------------|
 | [`crx`](./plugins/crx) | Personal CodeRabbit helpers — single and batched finding fix flows. |
 
-## Install
+## Install (humans — Claude Code)
 
-Add this marketplace once:
+Claude Code is the primary target. Add the marketplace once, then install whichever plugins you want:
 
 ```
 /plugin marketplace add ChrisFmlyc/ai-skills
-```
-
-Then install any plugin from it:
-
-```
 /plugin install crx@ai-skills
 ```
 
-Restart Claude Code so new slash commands register.
+Restart Claude Code so new slash commands register. After install, `/crx:single` and `/crx:multi` are available.
 
 ## Update
-
-Pull the latest marketplace state, then update an installed plugin:
 
 ```
 /plugin marketplace update ai-skills
@@ -61,15 +37,26 @@ Pull the latest marketplace state, then update an installed plugin:
 /plugin marketplace remove ai-skills
 ```
 
-## Authoring new plugins
+## Other platforms
 
-1. Create `plugins/<name>/.claude-plugin/plugin.json` with `name`, `description`, `version`, `author`.
-2. Add skills under `plugins/<name>/skills/<skill-name>/SKILL.md`. Each `SKILL.md` needs YAML frontmatter with `name` and `description`. The `description` is what Claude matches against to decide when to trigger the skill — make it specific.
-3. Register the plugin in `.claude-plugin/marketplace.json` under `plugins`.
-4. Bump `version` in `plugin.json` whenever you publish a change.
+The same `SKILL.md` files work in other agent environments (Claude Desktop, Claude Agent SDK, Codex, Cursor), but the install procedure differs. Rather than maintain a parallel set of human instructions per platform, ask your agent: *"Install the ai-skills `<plugin>` plugin"* and it will read [`AGENTS.md`](./AGENTS.md) and follow the right procedure for the platform it's running on.
 
-Refer to the existing `crx` plugin as a template.
+## Repository layout
 
-## License
+```
+ai-skills/
+├── .claude-plugin/
+│   └── marketplace.json        # marketplace manifest (registers each plugin)
+├── plugins/
+│   └── <plugin>/
+│       ├── .claude-plugin/
+│       │   └── plugin.json     # plugin manifest
+│       ├── README.md
+│       └── skills/
+│           └── <skill>/
+│               └── SKILL.md    # skill body with YAML frontmatter
+├── AGENTS.md                   # instructions for agents
+└── README.md
+```
 
-Personal use. No warranty.
+Each plugin follows the skill-creator `SKILL.md` layout, so individual skill files are portable to any agent that understands the format.
