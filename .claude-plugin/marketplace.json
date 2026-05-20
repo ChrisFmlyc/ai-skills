@@ -1,0 +1,8 @@
+{
+  "name": "ai-skills",
+  "owner": { "name": "Chris Powell" },
+  "description": "Personal Claude Code marketplace — skills and plugins maintained across work and personal environments.",
+  "plugins": [
+    { "name": "crx", "source": "./plugins/crx" }
+  ]
+}
