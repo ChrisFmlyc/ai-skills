@@ -1,11 +1,12 @@
 # repo — personal repo workflow helpers
 
-Two skills:
+Three skills:
 
 - `/repo:init` — bootstrap a brand-new repo **in the current directory** (never in a new wrapper folder). Commits a placeholder `README.md`, wires `origin` (creating the GitHub repo if you ask), pushes `main`.
+- `/repo:sync` — post-merge git reset. Switches to the default branch, fetches with prune, fast-forwards to origin, and deletes the just-merged local feature branch — so the next `/repo:branch` invocation starts fully synced. Slash-only; never auto-fires.
 - `/repo:branch` — branch-policy enforcement guardrail. **Auto-fires on any branch creation, worktree creation, or commit verb.** Refuses commits on `main`/`master` and refuses branch names that don't match one of the required prefixes (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `rnd/`, `hotfix/`). No bypasses.
 
-Either skill auto-triggers when its associated verb appears in the conversation, or invoke explicitly with `/repo:init` / `/repo:branch`.
+`/repo:init` and `/repo:branch` auto-trigger when their associated verbs appear in the conversation. `/repo:sync` only fires when invoked explicitly with `/repo:sync`.
 
 ## Install
 
