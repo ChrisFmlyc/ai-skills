@@ -7,6 +7,8 @@ Two skills for mid-PR CodeRabbit fix prompts:
 
 Either skill auto-triggers when its header sentence appears in a paste, or you can invoke it by typing `/crx:single` / `/crx:multi`.
 
+Both skills run a one-shot **gitignore hygiene** check before any other work — if the repo's `.gitignore` is missing `.claude/worktrees/`, the snippet from `resources/gitignore-snippet.txt` is appended and committed in a single `chore: ignore .claude/worktrees/` commit. This keeps Claude Code's subagent worktrees out of the PR. If the line is already present, nothing happens.
+
 ## Install
 
 From the `ai-skills` marketplace:
