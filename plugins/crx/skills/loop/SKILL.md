@@ -1,6 +1,6 @@
 ---
 name: loop
-description: Drive a PR to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to crx:single/crx:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /loop.
+description: Drive a PullRequest (PR) to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to crx:single/crx:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /goal.
 disable-model-invocation: true
 metadata:
   version: "0.1.0"
@@ -8,7 +8,7 @@ metadata:
 
 # crx:loop — loop a PR until CodeRabbit has nothing left to say
 
-The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. This skill is the iteration body for that: invoke it as `/loop /crx:loop` (optionally with a PR number or branch after it) so the `/loop` skill paces the waiting between CodeRabbit review rounds. A bare `/crx:loop` also works — you then pace the polling yourself.
+The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. Invoke it as `/crx:loop` (optionally with a PR number or branch after it). The skill is designed to run under `/goal`: its first action is to issue the `/goal` command with the loop's outcome, and `/goal` is what keeps the work going — round after round, through the waits between CodeRabbit reviews — until that outcome is met or a stop condition fires.
 
 Slash-only (`disable-model-invocation: true`) — **invoking this skill is the user's standing authorization to push fix commits to the PR branch and to post/resolve finding threads on the PR.** That is a deliberate divergence from `crx:single` / `crx:multi`, which never push and never post: those skills are paste-driven and the user is watching; this one is invoked precisely so the user can stop watching. The authorization covers exactly one branch — the PR branch identified in pre-flight — and never extends to force-pushes, merges, or any other branch.
 
@@ -20,9 +20,9 @@ Before any git or gh work, invoke the `/goal` command with the outcome this loop
 
 > /goal PR #\<n\> on \<owner\>/\<repo\> has zero unresolved CodeRabbit review threads: every finding is either fixed and pushed, or rebutted with a posted reply and its thread resolved, and CodeRabbit's review of the current HEAD reports no new actionable findings.
 
-The goal is the exit condition. Every iteration ends by checking the loop's state against it; the loop stops only when the goal is met or a stop condition below fires. If `/goal` is genuinely unavailable in this environment, state the same sentence verbatim in chat as the loop's written target — but the command is the expected path.
+The goal is both the engine and the exit condition: `/goal` keeps the loop running across review rounds, and every round ends by checking the PR's state against it. The loop stops only when the goal is met or a stop condition below fires. If `/goal` is genuinely unavailable in this environment, state the same sentence verbatim in chat as the loop's written target and keep looping against it manually — but the command is the expected path.
 
-(Fill in `<n>` / `<owner>/<repo>` after pre-flight identifies the PR. On re-invocations under `/loop`, the goal is already set — don't re-issue it, just re-read it.)
+(Fill in `<n>` / `<owner>/<repo>` after pre-flight identifies the PR. If the PR doesn't exist yet, issue the `/goal` right after loop step 1 creates it. Issue the goal once per `/crx:loop` invocation — if it's already set from this invocation, don't re-issue it.)
 
 ## Pre-flight (every invocation)
 
@@ -33,7 +33,7 @@ The goal is the exit condition. Every iteration ends by checking the loop's stat
 
 ## The loop
 
-One `/crx:loop` invocation executes as much of this as it can without idle waiting, then hands pacing back to `/loop`.
+One `/crx:loop` invocation runs this loop until the `/goal` is met or a stop condition fires. The waits in step 2 are part of the loop, not a reason to end it — `/goal` holds the outcome open while CodeRabbit works.
 
 ### 1. Submit the PR (first iteration only, if none exists)
 
@@ -55,7 +55,7 @@ gh api "repos/{owner}/{repo}/pulls/<n>/reviews" \
 ```
 
 - Review submitted after `HEAD_TIME` → CodeRabbit is done with this round; go to step 3.
-- No review yet, or only one older than `HEAD_TIME` → CodeRabbit is still working. **End this iteration here** with a one-line status ("waiting for CodeRabbit on PR #n") and let `/loop` re-fire — CodeRabbit typically takes a few minutes, so a ~3–4 minute re-check cadence is right. Without `/loop`, poll the same query at ~60–90s intervals instead of ending.
+- No review yet, or only one older than `HEAD_TIME` → CodeRabbit is still working. Report a one-line status ("waiting for CodeRabbit on PR #n") and re-run the same query at ~60–90 second intervals — CodeRabbit typically takes a few minutes per round. Waiting here is the loop working as designed; don't abandon the goal because the review is slow.
 
 ### 3. Pull the outstanding findings
 
@@ -79,7 +79,7 @@ gh api graphql -f query='
 
 A finding is **outstanding** when `isResolved == false` and the thread's first comment is by `coderabbitai` / `coderabbitai[bot]`. Count them.
 
-**Zero outstanding** → check the goal: review complete for HEAD, no unresolved threads, nothing left to push. Goal met — report it, tell `/loop` to stop (do not reschedule), done.
+**Zero outstanding** → check the goal: review complete for HEAD, no unresolved threads, nothing left to push. Goal met — report it and end the loop. Done.
 
 ### 4. Fix or rebut — dispatch to the sibling skills
 
@@ -113,7 +113,7 @@ Plain push only — never `--force`, never `-f`, never a different branch. If th
 
 ### 6. Re-check
 
-The push (or the thread resolutions) re-triggers CodeRabbit. Go back to step 2 — under `/loop` that means ending this iteration with a status line ("round N pushed: X fixed, Y rebutted — waiting for re-review") and letting the next firing pick up from the wait.
+The push (or the thread resolutions) re-triggers CodeRabbit. Report a status line ("round N pushed: X fixed, Y rebutted — waiting for re-review") and go back to step 2. The goal is still open; the loop continues.
 
 ## Stop conditions (besides the goal)
 
@@ -122,7 +122,7 @@ The push (or the thread resolutions) re-triggers CodeRabbit. Go back to step 2 �
 - **A sibling skill refuses** (can't parse, on wrong branch, etc.) → stop, surface its exact message. Don't work around a guardrail.
 - **The user says stop** → stop. Obviously.
 
-When any stop condition fires, tell `/loop` not to reschedule.
+When any stop condition fires, report why, mark the goal as not reached, and end the loop — don't keep grinding against a goal that can no longer be met autonomously.
 
 ## Forbidden behaviors
 
