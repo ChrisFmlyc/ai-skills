@@ -10,7 +10,7 @@ This repository is a [Claude Code plugin marketplace](https://docs.claude.com/en
 
 | Plugin | Description |
 |--------|-------------|
-| [`crx`](./plugins/crx) | Personal CodeRabbit helpers — single and batched finding fix flows. |
+| [`crx`](./plugins/crx) | Personal CodeRabbit helpers — single and batched finding fix flows, plus `/crx:loop` to drive a PR to zero outstanding findings. |
 | [`repo`](./plugins/repo) | Repo lifecycle: bootstrap (`/repo:init`), sync (`/repo:sync`), create branch (`/repo:newbranch`), validate (`/repo:branch`). |
 
 ## Install (humans — Claude Code)
