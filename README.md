@@ -11,6 +11,7 @@ This repository is a [Claude Code plugin marketplace](https://docs.claude.com/en
 | Plugin | Description |
 |--------|-------------|
 | [`crx`](./plugins/crx) | Personal CodeRabbit helpers — single and batched finding fix flows, plus `/crx:loop` to drive a PR to zero outstanding findings. |
+| [`mastrahog`](./plugins/mastrahog) | Mastra × PostHog — drop-in, validated native PostHog AI tracing for Mastra agents (`/mastrahog:aitrace`): wire the connector, attribute users/sessions, handle errors, confirm `$ai_*` traces are landing. |
 | [`repo`](./plugins/repo) | Repo lifecycle: bootstrap (`/repo:init`), sync (`/repo:sync`), create branch (`/repo:newbranch`), validate (`/repo:branch`). |
 
 ## Install (humans — Claude Code)
