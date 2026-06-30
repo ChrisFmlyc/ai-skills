@@ -1,6 +1,7 @@
 ---
 name: aitrace
 description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end-to-end. Installs the @mastra/posthog connector, drops in the master code, attributes users/sessions, handles errors, configures sampling, notes live evaluations, and confirms $ai_* traces are actually landing in PostHog. Use when someone says "add PostHog tracing to my Mastra agent", "instrument my Mastra app for PostHog", "/mastrahog:aitrace", or wants LLM observability on a Mastra project.
+disable-model-invocation: true
 metadata:
   version: "0.1.0"
   triggers:
