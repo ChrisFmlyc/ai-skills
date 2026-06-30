@@ -1,6 +1,6 @@
 {
   "name": "mastrahog",
-  "description": "Mastra × PostHog. Drop-in, validated native PostHog AI tracing for Mastra agents — wire it, attribute users/sessions, and confirm $ai_* traces are landing. /mastrahog:aitrace is the first skill.",
-  "version": "0.1.0",
+  "description": "PostHog observability, drop-in and validated. /mastrahog:aitrace wires native PostHog AI tracing ($ai_*) into a Mastra app; /mastrahog:oteltrace wires native OpenTelemetry logs + distributed traces into any app (any language) and exports them to PostHog. Two signals, same PostHog project.",
+  "version": "0.2.0",
   "author": { "name": "Chris Powell" }
 }
