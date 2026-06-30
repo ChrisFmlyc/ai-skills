@@ -1,6 +1,7 @@
 ---
 name: oteltrace
 description: Wire native OpenTelemetry logs + distributed traces into a project and export them to PostHog, validated end-to-end. The non-AI counterpart to mastrahog:aitrace — where aitrace handles LLM $ai_* observability, oteltrace handles application logs + request/workflow traces. Language-agnostic: the skill encodes the general logic and looks up the target language's OTEL SDK per run (TypeScript is the worked reference example). Use when someone says "add PostHog logging/tracing to my app", "instrument my service for OpenTelemetry → PostHog", "/mastrahog:oteltrace", or wants logs + distributed traces (not LLM traces) in PostHog.
+disable-model-invocation: true
 metadata:
   version: "0.1.0"
   triggers:
