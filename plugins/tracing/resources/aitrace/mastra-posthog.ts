@@ -1,5 +1,5 @@
 /**
- * mastrahog — drop-in native PostHog AI tracing for Mastra.
+ * mastra-posthog — drop-in native PostHog AI tracing for Mastra.
  *
  * This is the "master code": copy it into your Mastra project (e.g. src/) and
  * pass `buildPostHogObservability()` to your `Mastra` instance. That single
@@ -46,11 +46,11 @@ export interface PostHogTracingOptions {
 export function buildPostHogObservability(opts: PostHogTracingOptions = {}): Observability {
   const apiKey = process.env.POSTHOG_PROJECT_TOKEN;
   if (!apiKey) {
-    throw new Error('mastrahog: set POSTHOG_PROJECT_TOKEN (your phc_ project token) before starting Mastra.');
+    throw new Error('mastra-posthog: set POSTHOG_PROJECT_TOKEN (your phc_ project token) before starting Mastra.');
   }
   if (!apiKey.startsWith('phc_')) {
     throw new Error(
-      'mastrahog: POSTHOG_PROJECT_TOKEN must be a PROJECT token (phc_…), not a personal API key (phx_…).',
+      'mastra-posthog: POSTHOG_PROJECT_TOKEN must be a PROJECT token (phc_…), not a personal API key (phx_…).',
     );
   }
   const host = process.env.POSTHOG_HOST ?? 'https://us.i.posthog.com';

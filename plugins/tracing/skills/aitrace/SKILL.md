@@ -1,18 +1,18 @@
 ---
 name: aitrace
-description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end-to-end. Installs the @mastra/posthog connector, drops in the master code, attributes users/sessions, handles errors, configures sampling, notes live evaluations, and confirms $ai_* traces are actually landing in PostHog. Use when someone says "add PostHog tracing to my Mastra agent", "instrument my Mastra app for PostHog", "/mastrahog:aitrace", or wants LLM observability on a Mastra project.
+description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end-to-end. Installs the @mastra/posthog connector, drops in the master code, attributes users/sessions, handles errors, configures sampling, notes live evaluations, and confirms $ai_* traces are actually landing in PostHog. Use when someone says "add PostHog tracing to my Mastra agent", "instrument my Mastra app for PostHog", "/tracing:aitrace", or wants LLM observability on a Mastra project.
 disable-model-invocation: true
 metadata:
   version: "0.1.0"
   triggers:
-    - "mastrahog aitrace"
+    - "tracing aitrace"
     - "add posthog tracing to my mastra agent"
     - "instrument my mastra app for posthog"
 ---
 
-# mastrahog:aitrace — native PostHog AI tracing for Mastra, wired and validated
+# tracing:aitrace — native PostHog AI tracing for Mastra, wired and validated
 
-The principle: the human calls `/mastrahog:aitrace` and you do everything needed
+The principle: the human calls `/tracing:aitrace` and you do everything needed
 to make a Mastra app emit correct PostHog AI traces — install the connector, drop
 in the master code, wire it into the `Mastra` instance, set env, and then **prove
 it works** by running the agent and reading the traces back from PostHog. The
@@ -21,8 +21,8 @@ the whole job.
 
 Bundled master code (copy these into the project — don't reinvent them; they
 encode the correct config, fail-fast checks, and helpers):
-- `${CLAUDE_PLUGIN_ROOT}/resources/mastrahog.ts` — `buildPostHogObservability()` + `withUser()` / `withSession()` / `getTraceId()`.
-- `${CLAUDE_PLUGIN_ROOT}/resources/validate-trace.ts` — reads traces back from PostHog to confirm ingestion (cache-busting baked in — see lessons).
+- `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/mastra-posthog.ts` — `buildPostHogObservability()` + `withUser()` / `withSession()` / `getTraceId()`.
+- `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts` — reads traces back from PostHog to confirm ingestion (cache-busting baked in — see lessons).
 
 ## What this skill delivers (and what it does NOT)
 
@@ -45,8 +45,8 @@ Delivered by the native `@mastra/posthog` connector once wired:
   wire anything claiming a populated Tools tab.
 
 This skill is **AI tracing only**. Logs, product-analytics events, and user
-feedback are deliberately out of scope — they belong to future `mastrahog:*`
-skills (see "The mastrahog ecosystem" below). Don't sprawl into them here.
+feedback are deliberately out of scope — they belong to future `tracing:*`
+skills (see "The tracing ecosystem" below). Don't sprawl into them here.
 
 ## Preflight — confirm before touching anything
 
@@ -70,12 +70,12 @@ npm install @mastra/observability @mastra/posthog
 The only deps this skill adds.
 
 ### 2. Drop in the master code
-Copy `${CLAUDE_PLUGIN_ROOT}/resources/mastrahog.ts` into the project's source
-(e.g. `src/mastrahog.ts`). Don't rewrite it.
+Copy `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/mastra-posthog.ts` into the project's source
+(e.g. `src/mastra-posthog.ts`). Don't rewrite it.
 
 ### 3. Wire it into the Mastra instance
 ```ts
-import { buildPostHogObservability } from './mastrahog';
+import { buildPostHogObservability } from './mastra-posthog';
 
 export const mastra = new Mastra({
   agents: { /* … */ },
@@ -95,7 +95,7 @@ Add to `.env.example` if present; confirm `.env` is gitignored.
 
 ### 5. Attribute users / sessions (recommended)
 ```ts
-import { withUser, getTraceId } from './mastrahog';
+import { withUser, getTraceId } from './mastra-posthog';
 const res = await agent.generate(input, withUser(userId, sessionId));
 const traceId = getTraceId(res); // keep if you'll correlate feedback/logs later
 // Workflows: await run.start({ inputData, ...withUser(userId, sessionId) });
@@ -116,7 +116,7 @@ Without this, traces are `anonymous`.
 3. **Read it back:**
    ```
    POSTHOG_PERSONAL_API_KEY=phx_… POSTHOG_PROJECT_ID=<id> \
-     npx tsx ${CLAUDE_PLUGIN_ROOT}/resources/validate-trace.ts
+     npx tsx ${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts
    ```
    PASS = `$ai_generation` events found. FAIL prints the likely cause.
 4. **Prefer the PostHog MCP if connected** (see below) to confirm ingestion
@@ -202,9 +202,9 @@ These came from real debugging. Don't relearn them.
 - **Don't** create a second PostHog client/exporter if one exists — extend.
 - **Don't** expand into logs / analytics events / feedback here — out of scope.
 
-## The mastrahog ecosystem (so you know the boundaries)
+## The tracing ecosystem (so you know the boundaries)
 
-`aitrace` is the first skill. Others will follow as separate `mastrahog:*` skills
+`aitrace` is the first skill. Others will follow as separate `tracing:*` skills
 — do **not** fold them into `aitrace`:
 - **logs** — PostHog Logs via OpenTelemetry OTLP (`<host>/i/v1/logs`). Separate
   pipeline from tracing; not the Mastra connector.

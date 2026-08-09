@@ -2,8 +2,13 @@
 //
 // Every call emits a NATIVE OTEL LogRecord through the global LoggerProvider that
 // telemetry.ts registers. That provider ALWAYS carries a console exporter (stdout)
-// and — when PostHog export is enabled — the OTLP→PostHog exporter. This replaces
-// any logging-library→OTEL bridge, which can silently drop records under pure ESM.
+// and — when PostHog export is enabled — the OTLP→PostHog exporter. Console is an
+// exporter on that one provider, never a second `stdout.write` path (§0).
+//
+// OTEL-STANDARD.md §0 accepts either route into the logs SDK: bridge the language's
+// normal logging API, or emit through the logs API directly. This reference emits
+// directly because the pino→OTEL bridge silently dropped EVERY record under pure
+// ESM. If you bridge instead, verify records actually arrive in your runtime first.
 //
 // Trace correlation is AUTOMATIC: emit() captures the active span context, so a log
 // emitted inside a span carries that span's trace/span ids. Never inject by hand.
@@ -13,6 +18,7 @@
 // logger that exists before the provider registers). No provider yet → no-op →
 // clean fail-soft (never throws).
 import { logs, SeverityNumber, type LogAttributes } from '@opentelemetry/api-logs';
+import { postHogAttributes } from './posthog-context.js';
 
 const LOGGER_NAME = 'app';
 
@@ -74,7 +80,11 @@ function emit(level: Level, base: Fields, objOrMsg: unknown, msg?: string): void
       severityNumber: spec.severityNumber,
       severityText: spec.severityText,
       body,
-      attributes: { ...base, ...attributes } as LogAttributes,
+      // postHogAttributes() adds `posthogDistinctId` / `sessionId` from the
+      // ambient context when the request carried them, so the record is
+      // clickable through to the person and the session replay. Call-site
+      // fields win — an explicit id beats the ambient one.
+      attributes: { ...postHogAttributes(), ...base, ...attributes } as LogAttributes,
     });
   } catch {
     /* emission must never throw out of a log call (fail-soft) */
