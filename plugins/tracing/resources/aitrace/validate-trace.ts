@@ -1,5 +1,5 @@
 /**
- * mastrahog — trace validation.
+ * mastra-posthog — trace validation.
  *
  * Confirms that native PostHog AI traces are actually landing. Run this AFTER
  * you've exercised your agent at least once (so a trace exists), e.g.:
@@ -28,13 +28,13 @@ function apiHost(ingest: string): string {
 async function main(): Promise<void> {
   if (!PROJECT_ID || !PERSONAL_KEY) {
     console.error(
-      'mastrahog: set POSTHOG_PROJECT_ID and POSTHOG_PERSONAL_API_KEY (phx_…) to validate ingestion.\n' +
+      'aitrace: set POSTHOG_PROJECT_ID and POSTHOG_PERSONAL_API_KEY (phx_…) to validate ingestion.\n' +
         'These are read-only credentials, separate from the phc_ project token used to send traces.',
     );
     process.exit(1);
   }
   if (!PERSONAL_KEY.startsWith('phx_')) {
-    console.error('mastrahog: POSTHOG_PERSONAL_API_KEY should be a personal API key (phx_…).');
+    console.error('aitrace: POSTHOG_PERSONAL_API_KEY should be a personal API key (phx_…).');
     process.exit(1);
   }
 
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   });
 
   if (!res.ok) {
-    console.error(`mastrahog: PostHog query failed (HTTP ${res.status}). Check project id + personal key + host.`);
+    console.error(`aitrace: PostHog query failed (HTTP ${res.status}). Check project id + personal key + host.`);
     console.error((await res.text()).slice(0, 400));
     process.exit(1);
   }
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
 
   if (rows.length === 0) {
     console.error(
-      `mastrahog: FAIL — no $ai_generation events in the last ${WINDOW_MINUTES}m.\n` +
+      `aitrace: FAIL — no $ai_generation events in the last ${WINDOW_MINUTES}m.\n` +
         'Did the agent actually run? Is observability wired into the Mastra instance?\n' +
         'Is POSTHOG_HOST the region your project lives in (eu vs us)?',
     );
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
   const totalGens = rows.reduce((s, r) => s + Number(r[1]), 0);
   const totalErrs = rows.reduce((s, r) => s + Number(r[2]), 0);
-  console.log(`mastrahog: PASS — ${totalGens} generation(s) reaching PostHog in the last ${WINDOW_MINUTES}m.`);
+  console.log(`aitrace: PASS — ${totalGens} generation(s) reaching PostHog in the last ${WINDOW_MINUTES}m.`);
   for (const [model, gens, errs, latest] of rows) {
     console.log(`  • ${model}: ${gens} generation(s), ${errs} error(s), latest ${latest}`);
   }
@@ -84,6 +84,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('mastrahog: validation crashed:', err instanceof Error ? err.message : String(err));
+  console.error('aitrace: validation crashed:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });

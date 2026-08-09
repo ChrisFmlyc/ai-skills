@@ -4,7 +4,7 @@
   "description": "Personal Claude Code marketplace — skills and plugins maintained across work and personal environments.",
   "plugins": [
     { "name": "crx", "source": "./plugins/crx" },
-    { "name": "mastrahog", "source": "./plugins/mastrahog" },
+    { "name": "tracing", "source": "./plugins/tracing" },
     { "name": "repo", "source": "./plugins/repo" }
   ]
 }
