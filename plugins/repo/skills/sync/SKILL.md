@@ -1,14 +1,21 @@
 ---
 name: sync
-description: Post-merge git reset. Switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports a clean "ready" state — so the next /repo:branch invocation starts fully synced with origin.
-disable-model-invocation: true
+description: Post-merge git reset. Switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports a clean "ready" state — so the next /repo:branch invocation starts fully synced with origin. Use after a PR merges, or when a skill that owns a post-merge step delegates to it.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # repo:sync — post-merge branch reset
 
 The user has just had a PR squash-merged into the default branch on GitHub and the remote feature branch was deleted. This skill brings the local checkout into the same state and leaves a clear-context handoff for the next prompt.
+
+## Who may invoke this
+
+Either the user typing `/repo:sync`, or a skill that owns a post-merge step and delegates to it rather than hand-rolling the equivalent git commands — `/spades:close` and `/spades:loop` are the reference cases. Delegation is the point: the whole reason this skill exists is so post-merge cleanup has exactly one implementation.
+
+It is safe to delegate to because every genuinely destructive path is already refused, not automated. The skill aborts on a dirty working tree and on a detached HEAD, and it warns instead of deleting when a feature branch holds more local commits than a squash-merge would explain. Those refusals belong to the user; a caller must surface them verbatim and stop, never auto-stash, auto-discard, or retry around them.
+
+(Until v0.2.0 this skill carried `disable-model-invocation: true`, which blocked delegation along with everything else. The refusals above — not the flag — are what make it safe.)
 
 ## Non-goals (do not do these)
 
