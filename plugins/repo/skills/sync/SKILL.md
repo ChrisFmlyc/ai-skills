@@ -2,7 +2,7 @@
 name: sync
 description: Post-merge git reset. Switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports a clean "ready" state — so the next /repo:branch invocation starts fully synced with origin. Use after a PR merges, or when a skill that owns a post-merge step delegates to it.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # repo:sync — post-merge branch reset
@@ -163,4 +163,4 @@ The user's next prompt describes the next piece of work. Branch creation is **no
 - **Refuse-on-dirty**: silent stashing has cost the user uncommitted work in the past. Make them choose.
 - **`[gone]` detection, not blind deletion**: a branch with an alive upstream may be mid-review on a different machine, or an unmerged WIP. Deleting locally without that signal can lose work.
 - **`-D` after squash-merge is intentional**: `git branch -d` will refuse because squash-merge produces a different commit hash. That refusal is a feature, not a bug — but in the squash-merge case we know the work is preserved (in the squashed commit), so `-D` is the right tool.
-- **No auto-trigger**: the user uses this between PRs to deliberately reset context. If the agent runs it on its own (e.g. "I see you've merged, let me clean up"), it may run at the wrong time — before the user has reviewed remaining local state. The slash-command-only contract (`disable-model-invocation: true`) makes the boundary explicit.
+- **No unprompted runs**: the user uses this between PRs to deliberately reset context. An agent reaching for it on its own ("I see you've merged, let me clean up") may run at the wrong time — before the user has reviewed remaining local state. The boundary is the rule in § Who may invoke this: the user, or a skill that owns a post-merge step and delegates to it. Nothing else. That rule, plus the refusals above, is what keeps this safe — not a frontmatter flag.
