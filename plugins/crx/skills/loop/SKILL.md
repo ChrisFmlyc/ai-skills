@@ -2,7 +2,7 @@
 name: loop
 description: Drive a PullRequest (PR) to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to crx:single/crx:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /goal, or delegated to by a driving skill the user invoked (e.g. /spades:loop). Not for autonomous use — see "Who may invoke this".
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # crx:loop — loop a PR until CodeRabbit has nothing left to say
@@ -119,9 +119,35 @@ git push origin "$(git rev-parse --abbrev-ref HEAD)"
 
 Plain push only — never `--force`, never `-f`, never a different branch. If there were no `fixed` commits this round (everything was rebutted), there's nothing to push; skip to step 6.
 
-### 6. Re-check
+### 6. Re-check, and close out anything the re-review left open
 
-The push (or the thread resolutions) re-triggers CodeRabbit. Report a status line ("round N pushed: X fixed, Y rebutted — waiting for re-review") and go back to step 2. The goal is still open; the loop continues.
+The push re-triggers CodeRabbit. Report a status line ("round N pushed: X fixed, Y rebutted — waiting for re-review") and wait for the new review to land (step 2's completion test).
+
+**A fix doesn't always auto-close its thread.** When the re-review covering your fix commits has completed, re-pull the threads (step 3) and close out any that are still open but already fixed:
+
+```bash
+gh api "repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies" \
+  --method POST -f body='Fixed in <commit-hash>.'
+gh api graphql -f query='
+  mutation($thread: ID!) {
+    resolveReviewThread(input: {threadId: $thread}) { thread { isResolved } }
+  }' -F thread=<thread-id>
+```
+
+Name the real commit — `Fixed in 3b097be.` is checkable in ten seconds. Only do this once the fix is in a **pushed** commit and a review has completed after it; if the finding isn't actually addressed, it goes back to step 4 instead.
+
+Then go back to step 2. The goal is still open; the loop continues.
+
+### `CHANGES_REQUESTED` is not a blocker
+
+It means *review this thing*. Two ways to clear it, both already in step 4:
+
+- **Fix it in code and push** — the preferred path.
+- **Resolve it manually with a comment** saying why.
+
+That's it. **CodeRabbit never posts `APPROVED`** and never retracts `CHANGES_REQUESTED`, so a PR's `reviewDecision` is not a completion signal and must never be gated on — gate on **zero unresolved threads**. A caller that blocks its merge on `reviewDecision != CHANGES_REQUESTED` deadlocks on every PR CodeRabbit ever flagged; tell it so rather than reporting the PR as unmergeable.
+
+A `CHANGES_REQUESTED` from a **human** is a different thing and this skill never touches it.
 
 ## Stop conditions (besides the goal)
 
