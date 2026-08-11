@@ -2,12 +2,12 @@
 name: loop
 description: Drive a PullRequest (PR) to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to crx:single/crx:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /goal, or delegated to by a driving skill the user invoked (e.g. /spades:loop). Not for autonomous use — see "Who may invoke this".
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # crx:loop — loop a PR until CodeRabbit has nothing left to say
 
-The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. Invoke it as `/crx:loop` (optionally with a PR number or branch after it). The skill is designed to run under `/goal`: its first action is to issue the `/goal` command with the loop's outcome, and `/goal` is what keeps the work going — round after round, through the waits between CodeRabbit reviews — until that outcome is met or a stop condition fires.
+The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. Invoke it as `/crx:loop` (optionally with a PR number or branch after it). Its first action is to state the loop's outcome — as a `/goal` when the user drove it, in writing when a skill delegated to it (see § Set the goal first). That stated outcome is what keeps the work going, round after round, through the waits between CodeRabbit reviews, until it is met or a stop condition fires.
 
 ## Who may invoke this — and what that authorizes
 
@@ -28,7 +28,14 @@ Before any git or gh work, invoke the `/goal` command with the outcome this loop
 
 > /goal PR #\<n\> on \<owner\>/\<repo\> has zero unresolved CodeRabbit review threads: every finding is either fixed and pushed, or rebutted with a posted reply and its thread resolved, and CodeRabbit's review of the current HEAD reports no new actionable findings.
 
-The goal is both the engine and the exit condition: `/goal` keeps the loop running across review rounds, and every round ends by checking the PR's state against it. The loop stops only when the goal is met or a stop condition below fires. If `/goal` is genuinely unavailable in this environment, state the same sentence verbatim in chat as the loop's written target and keep looping against it manually — but the command is the expected path.
+The goal is both the engine and the exit condition: it keeps the loop running across review rounds, and every round ends by checking the PR's state against it.
+
+**`/goal` is a command the *user* types — an agent cannot issue one.** So there are two equally valid forms, and neither is a deviation:
+
+- **The user typed `/crx:loop`** → issue the `/goal` command with the sentence above.
+- **A driving skill delegated to this one**, or `/goal` isn't available here → state the same sentence verbatim in chat as the loop's written target and loop against it. This is the normal path for a delegated run, not a fallback to apologise for.
+
+Either way the target is stated once, in writing, before any git or gh work.
 
 (Fill in `<n>` / `<owner>/<repo>` after pre-flight identifies the PR. If the PR doesn't exist yet, issue the `/goal` right after loop step 1 creates it. Issue the goal once per `/crx:loop` invocation — if it's already set from this invocation, don't re-issue it.)
 
@@ -91,10 +98,29 @@ A finding is **outstanding** when `isResolved == false` and the thread's first c
 
 ### 4. Fix or rebut — dispatch to the sibling skills
 
-Don't fix findings inline; the sibling skills carry the hard rules (smallest safe fix, scoped commits, forbidden commands) and this skill inherits their outcomes.
+Prefer dispatching over fixing inline: the sibling skills carry the hard rules (smallest safe fix, scoped commits, forbidden commands) and this skill inherits their outcomes.
 
 - **Exactly one finding** → extract the **"Prompt for AI Agents"** block from the finding comment's body (it sits in a collapsed `<details>` section) and invoke `/crx:single`, passing that block as the pasted finding.
 - **Two or more findings** → fetch the latest CodeRabbit review body and extract the **"Prompt for all review comments with AI agents"** block, and invoke `/crx:multi` with it. If that block is absent (older review format), assemble the equivalent paste from each thread's per-finding "Prompt for AI Agents" block and dispatch to `/crx:multi` the same way.
+
+#### Dispatch mode — declare it every round
+
+`/crx:multi` fans findings out to **parallel worktree subagents**, which assumes the findings are independent. Sometimes they aren't, and sometimes subagents aren't available at all. Those are real situations, not excuses — so this skill names them, and requires you to say which one you're in:
+
+| Mode | When |
+|---|---|
+| `parallel-dispatch` | The default and preferred path. Findings are independent; `/crx:single` or `/crx:multi` does the work. |
+| `sequential-inproc` | Dispatch isn't viable, so you fix the findings yourself, **one at a time, in dependency order**, under the sibling skills' rules. |
+
+`sequential-inproc` is legitimate for exactly these reasons, and you must state which applies:
+
+- **Findings depend on each other.** Fix the source, then regenerate the artefact built from it. Parallel worktrees each branch from the same base, so a dependent finding renders from unfixed input and the cherry-picks conflict.
+- **Subagents are unavailable** in this session — some environments forbid them.
+- **A sibling skill refuses** for a reason that doesn't apply to the finding itself.
+
+**Whichever mode you're in, the outcome contract is identical and non-negotiable:** smallest safe fix, commits scoped to the files that finding touches, no force-push, no branch switching, and never a resolved thread without either a real fix or a posted rationale. The mode changes *who types the fix*, never *what counts as done*.
+
+**Declare the mode in every round's status line** (step 6), not once at the start. Silently drifting from `parallel-dispatch` to `sequential-inproc` after round 1 is the failure this rule exists to prevent — the user can't audit a mode they were told about once.
 
 Each finding comes back from the sibling skill as one of:
 
@@ -121,7 +147,7 @@ Plain push only — never `--force`, never `-f`, never a different branch. If th
 
 ### 6. Re-check, and close out anything the re-review left open
 
-The push re-triggers CodeRabbit. Report a status line ("round N pushed: X fixed, Y rebutted — waiting for re-review") and wait for the new review to land (step 2's completion test).
+The push re-triggers CodeRabbit. Report a status line carrying the round, the dispatch mode, and the counts — e.g. `round 3 [sequential-inproc: findings depend on each other] — 4 fixed, 1 rebutted, pushed; waiting for re-review` — then wait for the new review to land (step 2's completion test).
 
 **A fix doesn't always auto-close its thread.** When the re-review covering your fix commits has completed, re-pull the threads (step 3) and close out any that are still open but already fixed:
 
@@ -153,7 +179,8 @@ A `CHANGES_REQUESTED` from a **human** is a different thing and this skill never
 
 - **Round cap.** Count the rounds (one round = one dispatch-and-push cycle; the `fix(coderabbit)` commits on the branch make this countable). After **5 rounds** without convergence, stop and surface the remaining findings — CodeRabbit and the fixes are ping-ponging and a human needs to look.
 - **PR closed or merged mid-loop** → stop, report.
-- **A sibling skill refuses** (can't parse, on wrong branch, etc.) → stop, surface its exact message. Don't work around a guardrail.
+- **A sibling skill refuses on a guardrail** (wrong branch, dirty state it won't touch) → stop, surface its exact message. Never work around a guardrail.
+- **A sibling skill is merely unusable** (subagents unavailable, findings interdependent) → that is not a stop. Switch to `sequential-inproc`, say so in the round's status line, and keep the outcome contract.
 - **The user says stop** → stop. Obviously.
 
 When any stop condition fires, report why, mark the goal as not reached, and end the loop — don't keep grinding against a goal that can no longer be met autonomously.
