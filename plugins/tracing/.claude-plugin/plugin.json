@@ -1,6 +1,6 @@
 {
   "name": "tracing",
   "description": "Observability, wired and validated. /tracing:oteltrace instruments any app in any language with OpenTelemetry logs, distributed traces and liveness metrics, governed by a bundled OpenTelemetry standard. /tracing:aitrace wires native PostHog AI tracing ($ai_*) into a Mastra app. Both export to PostHog and prove the data landed.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": { "name": "Chris Powell" }
 }

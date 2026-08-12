@@ -21,8 +21,9 @@ export to the same PostHog project; they cover different signals.
   trace metadata only, not tool-call payloads) — the skill says so plainly rather
   than faking a populated Tools tab.
 
-`/tracing:aitrace` fires when you ask to add/instrument PostHog tracing on a
-Mastra app, or invoke it explicitly.
+`/tracing:aitrace` is **slash-only** (`disable-model-invocation: true`) — type
+`/tracing:aitrace` to run it. It installs dependencies and edits your Mastra
+instance, so it never starts on its own.
 
 - `/tracing:oteltrace` — the **non-AI counterpart**. Wires native **OpenTelemetry
   logs + distributed traces** into a project and exports them to PostHog, validated
@@ -50,9 +51,9 @@ Mastra app, or invoke it explicitly.
   Note: PostHog **Error Tracking** issues come from the PostHog SDK's `captureException`,
   not from OTLP — the skill offers to wire that too, but asks first.
 
-`/tracing:oteltrace` fires when you ask to add PostHog logging/tracing (not LLM
-tracing) or OpenTelemetry → PostHog instrumentation to any service, or invoke it
-explicitly.
+`/tracing:oteltrace` is **slash-only** (`disable-model-invocation: true`) — type
+`/tracing:oteltrace` to run it. It rewrites every logging call in the project, so
+it never starts on its own.
 
 ### Which one?
 

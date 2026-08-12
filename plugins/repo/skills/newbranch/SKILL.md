@@ -10,7 +10,7 @@ metadata:
 
 Closes the loop between `/repo:sync` (clean main) and `/repo:branch` (validates names). This skill takes a one-line description of the next piece of work, syncs first, proposes a `<prefix>/<slug>` branch name, confirms with you, then creates a git worktree off the latest `main`.
 
-Slash-only (`disable-model-invocation: true`) — it makes a real change to disk, so invoke deliberately.
+Slash-only — it writes a new worktree to disk, so invoke it deliberately.
 
 ## 1. Read the description
 
