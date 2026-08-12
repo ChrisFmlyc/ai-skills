@@ -10,7 +10,7 @@ metadata:
 
 # repo:init — bootstrap a new repo in the current directory
 
-The user wants to turn the current working directory into a fresh git repo and get a first commit onto `origin/main`. Everything after that goes via branches and PRs (CodeRabbit reviews the PRs; `crx:single` / `crx:multi` handle findings).
+The user wants to turn the current working directory into a fresh git repo and get a first commit onto `origin/main`. Everything after that goes via branches and PRs (CodeRabbit reviews the PRs; `codereview:single` / `codereview:multi` handle findings).
 
 ## The load-bearing rule
 

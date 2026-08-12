@@ -1,21 +1,21 @@
 ---
 name: loop
-description: Drive a PullRequest (PR) to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to crx:single/crx:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /goal, or delegated to by a driving skill the user invoked (e.g. /spades:loop). Not for autonomous use — see "Who may invoke this".
+description: Drive a PullRequest (PR) to zero outstanding CodeRabbit findings. Sets the outcome with /goal, then loops — wait for review, pull findings via gh, dispatch to codereview:single/codereview:multi, push fixes, re-check — until CodeRabbit is clean. Designed to be run under /goal, or delegated to by a driving skill the user invoked (e.g. /spades:loop). Not for autonomous use — see "Who may invoke this".
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
-# crx:loop — loop a PR until CodeRabbit has nothing left to say
+# codereview:loop — loop a PR until CodeRabbit has nothing left to say
 
-The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. Invoke it as `/crx:loop` (optionally with a PR number or branch after it). Its first action is to state the loop's outcome — as a `/goal` when the user drove it, in writing when a skill delegated to it (see § Set the goal first). That stated outcome is what keeps the work going, round after round, through the waits between CodeRabbit reviews, until it is met or a stop condition fires.
+The user has (or is about to have) a PR open and wants to walk away while every CodeRabbit finding gets fixed or rebutted. Invoke it as `/codereview:loop` (optionally with a PR number or branch after it). Its first action is to state the loop's outcome — as a `/goal` when the user drove it, in writing when a skill delegated to it (see § Set the goal first). That stated outcome is what keeps the work going, round after round, through the waits between CodeRabbit reviews, until it is met or a stop condition fires.
 
 ## Who may invoke this — and what that authorizes
 
-**Invoking this skill is the user's standing authorization to push fix commits to the PR branch and to post/resolve CodeRabbit finding threads on the PR.** That is a deliberate divergence from `crx:single` / `crx:multi`, which never push and never post: those skills are paste-driven and the user is watching; this one is invoked precisely so the user can stop watching. The authorization covers exactly one branch — the PR branch identified in pre-flight — and never extends to force-pushes, merges, or any other branch.
+**Invoking this skill is the user's standing authorization to push fix commits to the PR branch and to post/resolve CodeRabbit finding threads on the PR.** That is a deliberate divergence from `codereview:single` / `codereview:multi`, which never push and never post: those skills are paste-driven and the user is watching; this one is invoked precisely so the user can stop watching. The authorization covers exactly one branch — the PR branch identified in pre-flight — and never extends to force-pushes, merges, or any other branch.
 
 Because that authorization is real, only two things may start this loop:
 
-1. **The user typing `/crx:loop`** (optionally with a PR number or branch). The original and expected path.
+1. **The user typing `/codereview:loop`** (optionally with a PR number or branch). The original and expected path.
 2. **A driving skill the user invoked, delegating to it as a step** — `/spades:loop` Stage 7 is the reference case. The user's invocation of *that* skill is what carries the authorization down; the driver states the same push/post boundary in its own body.
 
 Not authorized: reaching for this skill on your own initiative because a PR happens to have CodeRabbit comments on it. If nobody asked for the loop, don't start one — offer it and let the user decide. (Until v0.2.0 this was enforced mechanically with `disable-model-invocation: true`; that flag also blocked path 2, so it was dropped in favour of this rule. The rule is the contract — the flag was only ever its proxy.)
@@ -32,23 +32,23 @@ The goal is both the engine and the exit condition: it keeps the loop running ac
 
 **`/goal` is a command the *user* types — an agent cannot issue one.** So there are two equally valid forms, and neither is a deviation:
 
-- **The user typed `/crx:loop`** → issue the `/goal` command with the sentence above.
+- **The user typed `/codereview:loop`** → issue the `/goal` command with the sentence above.
 - **A driving skill delegated to this one**, or `/goal` isn't available here → state the same sentence verbatim in chat as the loop's written target and loop against it. This is the normal path for a delegated run, not a fallback to apologise for.
 
 Either way the target is stated once, in writing, before any git or gh work.
 
-(Fill in `<n>` / `<owner>/<repo>` after pre-flight identifies the PR. If the PR doesn't exist yet, issue the `/goal` right after loop step 1 creates it. Issue the goal once per `/crx:loop` invocation — if it's already set from this invocation, don't re-issue it.)
+(Fill in `<n>` / `<owner>/<repo>` after pre-flight identifies the PR. If the PR doesn't exist yet, issue the `/goal` right after loop step 1 creates it. Issue the goal once per `/codereview:loop` invocation — if it's already set from this invocation, don't re-issue it.)
 
 ## Pre-flight (every invocation)
 
 1. **`gh` is installed and authenticated.** `command -v gh` then `gh auth status`. If either fails, stop: the entire loop runs on `gh`. Tell the user to install it (`brew install gh`) or run `gh auth login` themselves — that flow is interactive.
 2. **On the PR branch.** `git rev-parse --abbrev-ref HEAD` — if `main` or `master`, stop. Branch creation is `/repo:newbranch`'s job; this skill never creates branches.
-3. **Working tree.** `git status --porcelain` — note pre-existing uncommitted changes. The dispatch step delegates commits to `crx:single` / `crx:multi`, which stage only the files each finding touches, so a dirty tree is tolerable — but say so in the iteration report.
-4. **Identify the PR.** If the user passed a PR number after `/crx:loop`, use it. Otherwise `gh pr view --json number,state,url,headRefName`. If no PR exists for the branch yet, this iteration starts at step 1 of the loop (submit). If the PR is closed or merged, stop and tell the user — the loop is over.
+3. **Working tree.** `git status --porcelain` — note pre-existing uncommitted changes. The dispatch step delegates commits to `codereview:single` / `codereview:multi`, which stage only the files each finding touches, so a dirty tree is tolerable — but say so in the iteration report.
+4. **Identify the PR.** If the user passed a PR number after `/codereview:loop`, use it. Otherwise `gh pr view --json number,state,url,headRefName`. If no PR exists for the branch yet, this iteration starts at step 1 of the loop (submit). If the PR is closed or merged, stop and tell the user — the loop is over.
 
 ## The loop
 
-One `/crx:loop` invocation runs this loop until the `/goal` is met or a stop condition fires. The waits in step 2 are part of the loop, not a reason to end it — `/goal` holds the outcome open while CodeRabbit works.
+One `/codereview:loop` invocation runs this loop until the `/goal` is met or a stop condition fires. The waits in step 2 are part of the loop, not a reason to end it — `/goal` holds the outcome open while CodeRabbit works.
 
 ### 1. Submit the PR (first iteration only, if none exists)
 
@@ -100,16 +100,16 @@ A finding is **outstanding** when `isResolved == false` and the thread's first c
 
 Prefer dispatching over fixing inline: the sibling skills carry the hard rules (smallest safe fix, scoped commits, forbidden commands) and this skill inherits their outcomes.
 
-- **Exactly one finding** → extract the **"Prompt for AI Agents"** block from the finding comment's body (it sits in a collapsed `<details>` section) and invoke `/crx:single`, passing that block as the pasted finding.
-- **Two or more findings** → fetch the latest CodeRabbit review body and extract the **"Prompt for all review comments with AI agents"** block, and invoke `/crx:multi` with it. If that block is absent (older review format), assemble the equivalent paste from each thread's per-finding "Prompt for AI Agents" block and dispatch to `/crx:multi` the same way.
+- **Exactly one finding** → extract the **"Prompt for AI Agents"** block from the finding comment's body (it sits in a collapsed `<details>` section) and invoke `/codereview:single`, passing that block as the pasted finding.
+- **Two or more findings** → fetch the latest CodeRabbit review body and extract the **"Prompt for all review comments with AI agents"** block, and invoke `/codereview:multi` with it. If that block is absent (older review format), assemble the equivalent paste from each thread's per-finding "Prompt for AI Agents" block and dispatch to `/codereview:multi` the same way.
 
 #### Dispatch mode — declare it every round
 
-`/crx:multi` fans findings out to **parallel worktree subagents**, which assumes the findings are independent. Sometimes they aren't, and sometimes subagents aren't available at all. Those are real situations, not excuses — so this skill names them, and requires you to say which one you're in:
+`/codereview:multi` fans findings out to **parallel worktree subagents**, which assumes the findings are independent. Sometimes they aren't, and sometimes subagents aren't available at all. Those are real situations, not excuses — so this skill names them, and requires you to say which one you're in:
 
 | Mode | When |
 |---|---|
-| `parallel-dispatch` | The default and preferred path. Findings are independent; `/crx:single` or `/crx:multi` does the work. |
+| `parallel-dispatch` | The default and preferred path. Findings are independent; `/codereview:single` or `/codereview:multi` does the work. |
 | `sequential-inproc` | Dispatch isn't viable, so you fix the findings yourself, **one at a time, in dependency order**, under the sibling skills' rules. |
 
 `sequential-inproc` is legitimate for exactly these reasons, and you must state which applies:
@@ -187,7 +187,7 @@ When any stop condition fires, report why, mark the goal as not reached, and end
 
 ## Forbidden behaviors
 
-Everything in `crx:single` / `crx:multi`'s forbidden list applies, with the two sanctioned exceptions already named (plain pushes to the PR branch; posting replies + resolving threads for rebutted findings). Additionally forbidden here:
+Everything in `codereview:single` / `codereview:multi`'s forbidden list applies, with the two sanctioned exceptions already named (plain pushes to the PR branch; posting replies + resolving threads for rebutted findings). Additionally forbidden here:
 
 - `gh pr merge`, `gh pr close`, `gh pr ready`, editing the PR title/body
 - dismissing or re-requesting reviews to silence CodeRabbit
@@ -199,6 +199,6 @@ Everything in `crx:single` / `crx:multi`'s forbidden list applies, with the two 
 ## What this skill deliberately does not do
 
 - It does not create the branch or the working tree. That is `/repo:newbranch`.
-- It does not fix findings itself. Single findings go to `crx:single`, batches to `crx:multi` — this skill orchestrates, waits, posts, and pushes.
+- It does not fix findings itself. Single findings go to `codereview:single`, batches to `codereview:multi` — this skill orchestrates, waits, posts, and pushes.
 - It does not merge the PR. The loop ends at "CodeRabbit is clean"; merging is the user's call.
 - It does not handle human review comments. Only `coderabbitai` threads count toward the goal; everything else is left untouched for the user.
