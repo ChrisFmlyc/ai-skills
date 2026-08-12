@@ -10,7 +10,7 @@ This repository is a [Claude Code plugin marketplace](https://docs.claude.com/en
 
 | Plugin | Description |
 |--------|-------------|
-| [`codereview`](./plugins/codereview) | Personal CodeRabbit helpers — single and batched finding fix flows, plus `/codereview:loop` to drive a PR to zero outstanding findings. |
+| [`codereview`](./plugins/codereview) | Code review helpers — `/codereview:fix` works a block of findings, one subagent each; `/codereview:loop` drives a PR to zero outstanding findings. |
 | [`tracing`](./plugins/tracing) | PostHog observability, drop-in and validated. `/tracing:aitrace` wires native PostHog AI tracing (`$ai_*`) into a Mastra app — connector, users/sessions, errors, confirmed landing. `/tracing:oteltrace` instruments any app in any language with OpenTelemetry logs + distributed traces to PostHog, governed by a bundled OTel standard (spans only for real actions, no orphans, redaction on both pipelines, a test per gate). |
 | [`repo`](./plugins/repo) | Repo lifecycle: bootstrap (`/repo:init`), sync (`/repo:sync`), create branch (`/repo:newbranch`), validate (`/repo:branch`). |
 
@@ -23,7 +23,7 @@ Claude Code is the primary target. Add the marketplace once, then install whiche
 /plugin install codereview@ai-skills
 ```
 
-Restart Claude Code so new slash commands register. After install, `/codereview:single` and `/codereview:multi` are available.
+Restart Claude Code so new slash commands register. After install, `/codereview:fix` and `/codereview:loop` are available.
 
 ## Update
 
