@@ -1,13 +1,9 @@
 ---
 name: aitrace
-description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end-to-end. Installs the @mastra/posthog connector, drops in the master code, attributes users/sessions, handles errors, configures sampling, notes live evaluations, and confirms $ai_* traces are actually landing in PostHog. Use when someone says "add PostHog tracing to my Mastra agent", "instrument my Mastra app for PostHog", "/tracing:aitrace", or wants LLM observability on a Mastra project.
+description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end to end — connector, users and sessions, errors, sampling, and a read-back confirming $ai_* traces actually landed. Slash-only: it installs dependencies and edits your Mastra instance, so type /tracing:aitrace to run it.
 disable-model-invocation: true
 metadata:
-  version: "0.1.0"
-  triggers:
-    - "tracing aitrace"
-    - "add posthog tracing to my mastra agent"
-    - "instrument my mastra app for posthog"
+  version: "0.2.0"
 ---
 
 # tracing:aitrace — native PostHog AI tracing for Mastra, wired and validated
@@ -204,12 +200,14 @@ These came from real debugging. Don't relearn them.
 
 ## The tracing ecosystem (so you know the boundaries)
 
-`aitrace` is the first skill. Others will follow as separate `tracing:*` skills
-— do **not** fold them into `aitrace`:
-- **logs** — PostHog Logs via OpenTelemetry OTLP (`<host>/i/v1/logs`). Separate
-  pipeline from tracing; not the Mastra connector.
-- **analytics** — custom product events via `posthog-node` (e.g. lifecycle/business events).
-- **feedback** — user 👍/👎 attached to a trace via `$ai_trace_id`.
+- **`tracing:aitrace`** *(this skill)* — native PostHog **AI** tracing (`$ai_*`)
+  for Mastra/LLM apps.
+- **`tracing:oteltrace`** — application **logs, distributed traces, errors and
+  liveness metrics** for any app in any language, via OpenTelemetry OTLP. Same
+  PostHog project, different signal. Logs are its job, not this skill's.
+
+Still unclaimed, and **not** to be folded in here: custom product events via
+`posthog-node`, and user 👍/👎 feedback attached to a trace via `$ai_trace_id`.
 
 ## When you're done
 

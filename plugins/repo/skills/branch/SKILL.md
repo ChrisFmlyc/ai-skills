@@ -1,19 +1,8 @@
 ---
 name: branch
-description: STOP. Any branch creation, worktree creation, or commit MUST run this skill first. Enforces branch-name prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and absolutely refuses commits on main/master. No exceptions. No bypasses. No --no-verify workarounds.
+description: STOP. Any branch creation, worktree creation, or commit MUST run this skill first — including git checkout -b, git switch -c, git branch <name>, and git worktree add. Enforces branch-name prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and absolutely refuses commits on main/master. No exceptions, no bypasses, no --no-verify workarounds.
 metadata:
-  version: "0.1.0"
-  triggers:
-    - "create a branch"
-    - "new branch"
-    - "start a branch"
-    - "make a branch"
-    - "switch to a new branch"
-    - "git checkout -b"
-    - "git switch -c"
-    - "git branch"
-    - "git worktree add"
-    - "create a worktree"
+  version: "0.2.0"
 ---
 
 # repo:branch — branch-policy enforcement guardrail
@@ -107,10 +96,6 @@ Forbidden regardless of how the user phrases the request:
 - Forcing the regex check off "just this once".
 
 If the user says *"just this once, commit on main"* — refuse and explain why. The rule is the entire point of the skill. If they're certain they need a one-off commit on `main`, they can do it manually outside the agent; this skill will not be the path that lets it happen.
-
-## Interaction with `/repo:init`
-
-`/repo:init` makes exactly one commit on `main` as the explicit, sanctioned bootstrap of a brand-new repo. If you observe that exact flow — `New repo initialisation` commit message, `README.md` containing `DELETE ME` as the only tracked file, zero prior commits — stand aside and let it through. In every other situation the no-main-commit rule is absolute.
 
 ## What this skill deliberately does not do
 

@@ -15,8 +15,6 @@ Either the user typing `/repo:sync`, or a skill that owns a post-merge step and 
 
 It is safe to delegate to because every genuinely destructive path is already refused, not automated. The skill aborts on a dirty working tree and on a detached HEAD, and it warns instead of deleting when a feature branch holds more local commits than a squash-merge would explain. Those refusals belong to the user; a caller must surface them verbatim and stop, never auto-stash, auto-discard, or retry around them.
 
-(Until v0.2.0 this skill carried `disable-model-invocation: true`, which blocked delegation along with everything else. The refusals above — not the flag — are what make it safe.)
-
 ## Non-goals (do not do these)
 
 - No push, force-push, amend, or rebase.
@@ -163,4 +161,4 @@ The user's next prompt describes the next piece of work. Branch creation is **no
 - **Refuse-on-dirty**: silent stashing has cost the user uncommitted work in the past. Make them choose.
 - **`[gone]` detection, not blind deletion**: a branch with an alive upstream may be mid-review on a different machine, or an unmerged WIP. Deleting locally without that signal can lose work.
 - **`-D` after squash-merge is intentional**: `git branch -d` will refuse because squash-merge produces a different commit hash. That refusal is a feature, not a bug — but in the squash-merge case we know the work is preserved (in the squashed commit), so `-D` is the right tool.
-- **No unprompted runs**: the user uses this between PRs to deliberately reset context. An agent reaching for it on its own ("I see you've merged, let me clean up") may run at the wrong time — before the user has reviewed remaining local state. The boundary is the rule in § Who may invoke this: the user, or a skill that owns a post-merge step and delegates to it. Nothing else. That rule, plus the refusals above, is what keeps this safe — not a frontmatter flag.
+- **No unprompted runs**: the user runs this between PRs to deliberately reset context. An agent reaching for it on its own ("I see you've merged, let me clean up") may run before the user has reviewed remaining local state. See § Who may invoke this for the boundary.

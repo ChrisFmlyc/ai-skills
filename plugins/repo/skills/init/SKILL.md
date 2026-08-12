@@ -1,11 +1,8 @@
 ---
 name: init
-description: New repo? Run git init *in this directory* (never wrap it in a new folder). Commit a placeholder README, wire origin, push to main.
+description: New repo? Run git init *in this directory* (never wrap it in a new folder). Commit a placeholder README, wire origin, push to main. Use when someone says "init this as a new repo" or "set up a new repo here".
 metadata:
-  version: "0.1.0"
-  triggers:
-    - "init this as a new repo"
-    - "set up a new repo here"
+  version: "0.2.0"
 ---
 
 # repo:init — bootstrap a new repo in the current directory

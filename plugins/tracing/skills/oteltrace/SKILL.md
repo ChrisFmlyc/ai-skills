@@ -1,16 +1,9 @@
 ---
 name: oteltrace
-description: Instrument an app with OpenTelemetry — logs, distributed traces, errors and liveness metrics — and export them to PostHog. Use when someone wants application logs, traces or error visibility (not LLM traces) in PostHog, or asks to add, fix or clean up OpenTelemetry instrumentation in a service.
+description: Instrument an app in any language with OpenTelemetry — logs, distributed traces, errors and liveness metrics — and export them to PostHog. Application observability, not LLM tracing (that is /tracing:aitrace). Slash-only: it rewrites every logging call in the project, so type /tracing:oteltrace to run it.
 disable-model-invocation: true
 metadata:
-  version: "0.3.0"
-  triggers:
-    - "tracing oteltrace"
-    - "add posthog logging to my app"
-    - "add otel tracing to my service"
-    - "instrument my app for opentelemetry posthog"
-    - "native otel logs and traces to posthog"
-    - "clean up noisy otel spans"
+  version: "0.4.0"
 ---
 
 # tracing:oteltrace — OpenTelemetry logs + distributed traces for PostHog
@@ -38,26 +31,12 @@ any instrumentation. Where it and anything else — this file, the bundled refer
 code, an existing codebase convention — disagree, **the standard wins**; say so to the
 human and follow the standard.
 
-The rules it exists to enforce, in one screen:
-
-| # | Rule |
-|---|---|
-| 0 | **OTel is the only telemetry API.** All three signals through one SDK. Console is an *exporter* on the same provider, never a second code path. Structured attributes, not interpolated strings. |
-| 1 | **Spans are for actions.** Looking is not happening. Check *outside* the span, open it only once there is work. Gate on "will this run act?", not "are there records?". |
-| 1 | **Build the liveness counter BEFORE making a span conditional** — otherwise "no span" and "the process is dead" are indistinguishable. |
-| 2 | **No orphan spans.** A root is fine; a parentless single round-trip is not. Prefer structural prevention (`requireParentSpan`, allow-listed routes) over filters. **Allow-list, never deny-list** — deny-lists fail open. |
-| 3 | **Suppress at the call site, not the exporter.** Remove the span, not the call. Private context key, never baggage. Wrapping processor only when there is no call site — then filter by *instrumentation scope*, not span name. |
-| 4 | **A span is not a log.** Use span events for moments inside an operation. Suppressing a span must never suppress the log — **orphaned logs are correct; orphaned traces are not.** |
-| 5 | **Correlation rides on the context.** Assert both `trace_id` and `span_id`, through the redaction stage. |
-| 6 | **Continue or link, deliberately.** Fresh context = accidental root. Parents are fixed at creation. Retries/long delays/fan-in → new root + link. Missing trace context is never a reason to drop a message. |
-| 6 | **Parent = containment** ("I happened inside that", cause still open, child joins the parent's trace id, exactly one). **Link = causality** ("I was caused by that", cause usually finished, linker keeps its own trace id, zero or many). Anything with a wait in it is a link. |
-| 7 | **Attributes** are the typed key/values you filter and group by. **Resource** attrs describe the emitting process and are identical on every signal from it; **span** attrs describe the operation. High cardinality is fine on spans — put the entity id on — and never on metric labels. Set span kind and span status (not the HTTP status). |
-| 8 | **Metrics are aggregates**, not events: Counter (monotonic), UpDownCounter (can decrease), Gauge (sampled value), Histogram (distribution → percentiles). Cheap and pre-aggregated, but no per-request detail — which is why liveness lives here and debugging lives in traces. Mind delta vs cumulative temporality: summing a cumulative double-counts. |
-| 9 | **No bearer credential in a span attribute or a log line**, including inside a URL. Audit the **trace pipeline and the log pipeline separately**. |
-| 10 | **Every suppression, redaction and gate needs a test that fails when reverted** — actually revert it and watch it fail. |
+The steps below cite its rules by number (§0–§11) rather than restating them, so
+read it first or those references mean nothing.
 
 Bundled reference (copy + adapt into the project — don't reinvent):
 - `resources/oteltrace/OTEL-STANDARD.md` — **the rules.** Everything else serves this.
+- `resources/oteltrace/POSTHOG-INGESTION.md` — OTLP endpoints per signal, the attributes that make a record clickable, the env-var table, per-language SDK lookup.
 - `resources/oteltrace/telemetry.ts` — fail-soft `createTelemetry()` bootstrap (console exporter on the same provider; trace + log + metric pipelines; register-tracer-last; empty-resource fallback).
 - `resources/oteltrace/logger.ts` — OTel Logs API logger.
 - `resources/oteltrace/gating.ts` — the liveness counter, private-key suppression, and `runGated()` (check outside the span, open it only when there's work).
@@ -427,72 +406,24 @@ Then do an opt-in live check (`OTEL_LIVE_VERIFY=1`) that exports to real PostHog
 the data back. **Tests passing is not evidence the data landed — not done until both logs
 and a trace are visible in PostHog.**
 
-## How each signal actually lands in PostHog
+## Where the data lands, and how it's configured
 
-The standard tells you what to emit. This tells you where it goes and what makes it
-*clickable* once it arrives — PostHog's own docs, not inference.
+`${CLAUDE_PLUGIN_ROOT}/resources/oteltrace/POSTHOG-INGESTION.md` has the OTLP
+endpoints per signal, the attributes that make a record clickable through to a
+person or a session replay, the full env-var table, and the per-language SDK
+lookup. Read it when wiring the exporter (Step 3), setting env (Step 11), and
+checking the data arrived (Step 12).
 
-| Signal | Route into PostHog | Notes |
-|---|---|---|
-| **Traces** | OTLP → `<POSTHOG_HOST>/i/v1/traces` | Generic OTLP receiver, no PostHog SDK. Distributed tracing is **beta**. |
-| **Logs** | OTLP → `<POSTHOG_HOST>/i/v1/logs` | OTel-native: "point any OTLP client at PostHog". |
-| **Metrics** | OTLP → `<POSTHOG_HOST>/i/v1/metrics` | **Alpha** — verify before an alert depends on it. |
-| **Error Tracking** | **NOT OTLP** — `$exception` events from a PostHog SDK (`captureException`) | Step 9. No OTLP path exists on any platform. |
+Three things from it that catch people out, so they are here too:
 
-All three OTLP endpoints take `Authorization: Bearer <phc_…>` (the same project key;
-PostHog also accepts `?token=`). ⚠️ Pass the **full `/i/v1/…` path** — PostHog's docs say
-explicitly not to use the bare `OTEL_EXPORTER_OTLP_ENDPOINT` variable, and the generic
-convention **404s**.
-
-**What makes a record clickable.** These names are PostHog's, not yours to choose:
-
-| Want | Put this on the record |
-|---|---|
-| Log ↔ trace (both directions) | Nothing — OTLP log records carry `trace_id` / `span_id` natively, and PostHog exposes both as top-level filters (hex or base64). This is why §5's "pass the context" rule is the whole game. |
-| Log/trace → **person** | log attribute **`posthogDistinctId`** — matched against *every* `distinct_id` PostHog knows for that person, so any one identifier links it (identified-after-anonymous still resolves). Key is configurable in project settings. |
-| Log/trace → **session replay** | attribute **`sessionId`** |
-| Service / environment facets | resource attrs `service.name` and **`deployment.environment.name`** (the *current* semconv name — the legacy `deployment.environment` doesn't drive the facet). `host.name` and the `k8s.*` attrs light up their own facets when present. |
-| Severity filter | standard OTel severity → `severity_level` (`trace`/`debug`/`info`/`warn`/`error`/`fatal`) |
-
-**Getting the identity from the browser to the backend.** `posthog-js` will inject it for
-you: `posthog.init(key, { tracing_headers: ['api.your-app.com'] })` adds
-`X-POSTHOG-SESSION-ID` and `X-POSTHOG-DISTINCT-ID` to `fetch`/XHR calls to those hosts.
-Read them at your edge, put them in the request context, and stamp them onto every log
-and span from there inward (TS: `posthog-context.ts` does this, and `logger.ts` merges
-them onto every record automatically). This is **in addition to** W3C `traceparent`, not
-instead of it: `traceparent` decides the trace, these decide the person and the replay.
-If the frontend is PostHog-instrumented, the ids arrive on their own; if not, don't
-fabricate them.
-
-## Configuration reference
-
-| Env var | Status | Purpose / default |
-|---|---|---|
-| `POSTHOG_PROJECT_API_KEY` | **REQUIRED** | `phc_` — master switch + OTLP `Bearer` auth. No export without it. |
-| `POSTHOG_HOST` | optional (region) | PostHog **ingestion** host; defaults to `https://eu.i.posthog.com`. Set only for non-EU (US: `https://us.i.posthog.com`). **Not** the app host. |
-| `OTEL_TRACES_SAMPLER_RATIO` | recommended | `ParentBased(TraceIdRatioBased)` head sampler; default `1.0`; **lower in PRD** (e.g. `0.1`) for cardinality/cost. |
-| `OTEL_SERVICE_NAME` | recommended | `service.name` resource attr (the routing/filter dimension in PostHog). |
-| `OTEL_ENABLED` | optional | Explicit on/off override; unset → follows the token. `false` force-disables even with a token. |
-| `OTEL_LOG_LEVEL` | optional | Min log level for the OTel log pipeline; default `info`. |
-
-One `phc_` key does every job (traces, logs, metrics, error tracking, and any flag reads) —
-don't provision separate keys. The host is the **ingestion** host (`i.`), not the app host.
-
-Sampling note: the head sampler is a **cost** control, not a noise control. Do not reach for
-it to hide orphan or plumbing spans — those get fixed at the call site (§2, §3), or they come
-back at ratio `1.0`.
-
-## Per-language lookup (the only thing that differs)
-
-OTel SDKs + the same general logic, per language. Always look up current APIs via `context7` /
-official docs:
-
-- **TypeScript/Node** — bundled reference; `@opentelemetry/sdk-node`, `sdk-logs`, `api-logs`, OTLP exporters; Temporal: `@temporalio/interceptors-opentelemetry`.
-- **Go** — `go.opentelemetry.io/otel`, `otel/sdk`, OTLP/HTTP exporters, `otel/log` + `otelslog`; Temporal Go SDK interceptors.
-- **Python** — `opentelemetry-sdk`, `opentelemetry-exporter-otlp`, the logs SDK + `LoggingHandler`; Temporal Python interceptors.
-- **Java/.NET/Ruby/…** — analogous SDKs (Logback/Log4j appenders on the JVM).
-
-PostHog OTLP target + the env-var contract above are **identical** in all of them.
+- **The generic OTLP endpoint 404s.** PostHog needs the full `/i/v1/traces` and
+  `/i/v1/logs` paths on the `i.` **ingestion** host — not the app host, not `/v1/…`,
+  and not via the bare `OTEL_EXPORTER_OTLP_ENDPOINT` variable.
+- **One `phc_` key does every job.** Traces, logs, metrics, error tracking, flags.
+  Don't provision separate keys. `phc_` is publishable; `phx_` is not, and this
+  skill never needs one.
+- **Sampling is a cost control, not a noise control.** Orphan and plumbing spans
+  get fixed at the call site (§2, §3) or they come back at ratio `1.0`.
 
 ## Lessons learned (read this — production-proven)
 
