@@ -1,6 +1,6 @@
 {
   "name": "repo",
-  "description": "Personal repo workflow helpers — new-repo bootstrap, branch-policy enforcement, post-merge sync, and new-branch creation.",
-  "version": "0.6.1",
+  "description": "Personal repo workflow helpers — new-repo bootstrap, branch-policy enforcement, new-branch creation, PR description hygiene, and post-merge sync.",
+  "version": "0.7.0",
   "author": { "name": "Chris Powell" }
 }

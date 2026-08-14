@@ -21,13 +21,24 @@ These rules are non-negotiable. If a request would violate one, stop and explain
    ```yaml
    ---
    name: <skill>
-   description: <one sentence describing when this skill should trigger — Claude matches against this>
+   description: <when to invoke it, what it does, and what it never does>
    metadata:
      version: "0.1.0"
-     triggers:
-       - "<optional literal phrase that auto-triggers the skill>"
    ---
    ```
+
+   `description` is the only field Claude reads when deciding whether to load the
+   skill, so everything that governs invocation has to be in it. Two or three
+   sentences: **Invoke when X. It does Y. It never does Z.** The closing boundary
+   is what stops skills in the same plugin being confused for each other.
+
+   Do **not** add a `metadata.triggers` list. `metadata` is a free-form map that
+   Claude Code never reads, so trigger phrases parked there never fire. If a
+   literal phrase matters, put it in `description`.
+
+   Set `disable-model-invocation: true` only for a skill that must never start on
+   its own. It also keeps the description out of context entirely, so the skill
+   becomes reachable by slash command alone.
 2. Bump `version` in `plugins/<plugin>/.claude-plugin/plugin.json`.
 3. If the new skill is user-visible enough to mention, update `plugins/<plugin>/README.md`.
 4. If the plugin gained materially new functionality, update the top-level `README.md` "What's in here" table description.
@@ -53,9 +64,10 @@ These rules are non-negotiable. If a request would violate one, stop and explain
 
 ### Commit & PR conventions
 
-- Branch per change. Never commit directly to `main`.
+- Branch per change. Never commit directly to `main`. `/repo:branch` enforces this.
 - Conventional commit prefix: `feat(<plugin>):`, `fix(<plugin>):`, `chore:`, `docs:`.
 - Open a PR so CodeRabbit can review. Do not push to `main` without one.
+- Run `/repo:pr` on the draft title and body before opening the PR. It owns the house style for both.
 - Never use `--no-verify` or `--no-gpg-sign`.
 
 ### Things to avoid
