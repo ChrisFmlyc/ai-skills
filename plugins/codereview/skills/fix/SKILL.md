@@ -2,7 +2,7 @@
 name: fix
 description: Invoke when the user or an agent has code review findings to fix on a Pull Request (PR), from CodeRabbit, Greptile, or any other review bot. Parses the block into separate findings, gives each one its own subagent to either fix in code or comment and resolve on GitHub, then commits the fixes to the branch; it never pushes, the caller does that.
 metadata:
-  version: "0.3.2"
+  version: "0.3.3"
 ---
 
 # codereview:fix — one subagent per finding, all at once
@@ -167,8 +167,8 @@ Take this path when you determine a finding should not be fixed: either because 
 > # 1. find your thread
 > gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:1){nodes{databaseId body author{login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
 >
-> # 2. post your reason, in full sentences — a person will read it
-> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='<reason>'
+> # 2. post your reason
+> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>'
 >
 > # 3. resolve it
 > gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -F id=<threadId>
@@ -179,6 +179,8 @@ Take this path when you determine a finding should not be fixed: either because 
 > - Only touch threads where `author.login` is a review bot. Never a person's.
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
 > - Always comment before resolving.
+> - Start every comment you post with `(ai-skills:fix)`.
+> - One sentence, in plain English, saying what you decided and why. No code, no diffs, no line numbers — a person is reading this on GitHub.
 >
 > Return `{ outcome: "commented", index, reason, thread_url }`, or `{ outcome: "no-thread", index, reason, first_sentence }` if you could not find it.
 
