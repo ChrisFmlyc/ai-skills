@@ -1,6 +1,6 @@
 {
   "name": "codereview",
   "description": "Personal CodeRabbit helpers — single and batched finding fix flows, plus a hands-off loop that drives a PR to zero outstanding findings.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "Chris Powell" }
 }

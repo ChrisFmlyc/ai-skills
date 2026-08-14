@@ -1,9 +1,9 @@
 ---
 name: newbranch
-description: Start a new piece of work. Runs /repo:sync first to get local main in sync with origin, then takes a one-line description, proposes a <prefix>/<slug> branch name (validated against /repo:branch's regex), confirms with you, and creates a git worktree at ../<repo>-worktrees/<prefix>-<slug>.
+description: Invoke when starting a new piece of work that needs its own branch and worktree. /repo:newbranch syncs local main with origin first, turns a one-line description into a <prefix>/<slug> branch name, checks that name against /repo:branch's rules, confirms it with the user, then creates a git worktree at ../<repo>-worktrees/<prefix>-<slug>; it never commits, pushes, or opens a PR.
 disable-model-invocation: true
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # repo:newbranch — sync, propose, confirm, create the worktree

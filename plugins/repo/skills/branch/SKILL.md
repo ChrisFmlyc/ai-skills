@@ -1,8 +1,8 @@
 ---
 name: branch
-description: STOP. Any branch creation, worktree creation, or commit MUST run this skill first — including git checkout -b, git switch -c, git branch <name>, and git worktree add. Enforces branch-name prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and absolutely refuses commits on main/master. No exceptions, no bypasses, no --no-verify workarounds.
+description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. No exceptions, no bypasses, no --no-verify workarounds.
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # repo:branch — branch-policy enforcement guardrail

@@ -1,8 +1,8 @@
 ---
 name: sync
-description: Post-merge git reset. Switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports a clean "ready" state — so the next /repo:branch invocation starts fully synced with origin. Use after a PR merges, or when a skill that owns a post-merge step delegates to it.
+description: Invoke after a Pull Request (PR) merges, or when a skill that owns a post-merge step hands off to it. /repo:sync switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports "Ready." so the next branch starts fully in sync; it aborts on a dirty working tree or a detached HEAD rather than discarding anything, and it never pushes.
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # repo:sync — post-merge branch reset
