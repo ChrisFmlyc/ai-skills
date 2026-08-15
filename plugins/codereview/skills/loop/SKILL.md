@@ -2,7 +2,7 @@
 name: loop
 description: Invoke to drive outstanding code review findings to zero in a GitHub Pull Request (PR). /codereview:loop checks what CodeRabbit, Greptile, or any other coding agent found, and hands the findings text to /codereview:fix. After the review is complete, /codereview:loop, pushes the result, waits for the next review to complete. It repeats until there's no more issue on the GitHub code review; the skill NEVER fixes issue directly.
 metadata:
-  version: "0.6.3"
+  version: "0.7.0"
 ---
 
 # codereview:loop — cycle a Pull Request (PR) until all findings are fixed
@@ -128,12 +128,17 @@ Before you close anything, look at the code. If it does not match what the repor
 
 ## 4. Collect the findings that are left
 
-The coding agent's latest review contains a block headed **"Prompt for all review comments with AI agents"**. That block is what you pass to `/codereview:fix`, exactly as it came.
+**The open threads from step 2 are the findings.** That list is the source of truth. Every open bot thread still standing after step 3 must reach `/codereview:fix`.
 
-Do not assemble a list of your own. Do not split the block up. Do not judge the findings in it — deciding what to do with a finding is `/codereview:fix`'s job, not yours.
+The latest review also contains a block headed **"Prompt for all review comments with AI agents"**. Use it to *enrich* that list, never to replace it. The block carries the coding agent's own wording for a finding, which is better input than the raw comment — but it is routinely incomplete. A review with eleven open threads can carry a block naming one. Pass on the block alone and you fix one finding, push, and come back to ten still open, cycle after cycle until you hit the cap.
 
-- **The block is there.** Go to step 5.
-- **The block is missing.** The latest review found nothing new this cycle. Anything still open came from an earlier review, so step 3 should have closed it. If threads are still open that step 3 could not close, STOP and raise an ERROR listing them. The coding agent is not re-listing those findings, so no further cycle will clear them and a person needs to look.
+So build the block yourself:
+
+1. Start with the open threads from step 2, minus any step 3 just closed.
+2. For each one, take its entry from the review block if it has one. If not, take the thread's **"Prompt for AI Agents"** section, which sits in a collapsed `<details>` in the comment. If there is neither, use the comment body.
+3. Pass all of them to `/codereview:fix` in one block.
+
+**Count before you send.** If you are about to pass fewer findings than step 2 left open, you have dropped one — go back and find it. Do not judge them on the way past; deciding what to do with a finding is `/codereview:fix`'s job, not yours.
 
 ## 5. Call `/codereview:fix`
 
@@ -144,6 +149,8 @@ Give it the block. It sends back one answer per finding:
 | `fixed` | the fix is committed on the branch | push it in step 7, and write it down for step 3 next cycle |
 | `commented` | answered and closed on GitHub | nothing |
 | `no-thread` | answered, but it could not find the thread to reply on | post the answer yourself, then close the thread |
+
+`/codereview:fix` raises an ERROR rather than an answer in two cases: a subagent was given a worktree without its files, or the branch failed its own tests once every fix was collected. Both stop the cycle. Pass the ERROR on and do not push.
 
 For a `no-thread` answer, find the thread by matching the finding's first sentence against the thread's first comment, then post and resolve:
 
