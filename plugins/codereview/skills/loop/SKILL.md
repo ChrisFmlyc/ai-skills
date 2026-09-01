@@ -150,7 +150,16 @@ Give it the block. It sends back one answer per finding:
 | `commented` | answered and closed on GitHub | nothing |
 | `no-thread` | answered, but it could not find the thread to reply on | post the answer yourself, then close the thread |
 
-`/codereview:fix` raises an ERROR rather than an answer in two cases: a subagent was given a worktree without its files, or the branch failed its own tests once every fix was collected. Both stop the cycle. Pass the ERROR on and do not push.
+`/codereview:fix` raises an ERROR rather than an answer in three cases: the branch is behind its base, a subagent was given files that do not exist, or the branch failed its own tests once every fix was collected. All three stop the cycle. Pass the ERROR on and do not push.
+
+**The behind-the-base ERROR is yours to clear, and you must clear it before re-entering.** You own this branch, so bring it current, run the project's checks, then re-run `/codereview:fix`:
+
+```bash
+git fetch origin --quiet
+git merge "origin/$(gh pr view <n> --json baseRefName --jq .baseRefName)" --no-edit
+```
+
+Do not work around it by re-running `/codereview:fix` unchanged. A stale branch is exactly what makes a subagent judge a finding against superseded code and "correct" something that was already right. If the merge conflicts, stop and hand it to a person — resolving a base merge is not this loop's job. Say in your report that you updated the branch; it changes the PR.
 
 For a `no-thread` answer, find the thread by matching the finding's first sentence against the thread's first comment, then post and resolve:
 
