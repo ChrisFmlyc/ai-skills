@@ -2,7 +2,7 @@
 name: branch
 description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. No exceptions, no bypasses, no --no-verify workarounds.
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # repo:branch — branch-policy enforcement guardrail
@@ -103,4 +103,7 @@ If the user says *"just this once, commit on main"* — refuse and explain why. 
 - It does not open PRs, push, or modify remote state.
 - It does not edit branch-protection rules on GitHub. (Those are configured outside Claude; this skill is the in-agent guardrail that complements them.)
 
-Keeping the scope to validation-and-refusal is what makes the skill reliable. If you want help creating the branch after the name is approved, that's a normal one-liner — `git switch -c <name>` or `git worktree add ../<repo>-worktrees/<name> -b <name>` — run only once this skill has cleared the name.
+Branch and worktree creation is owned by `/repo:newbranch`, which invokes
+this guardrail for validation. After validation, return to that caller;
+it prepares the clean, current default branch and creates the worktree.
+Existing work resumes through `/repo:newbranch --resume <branch>`.
