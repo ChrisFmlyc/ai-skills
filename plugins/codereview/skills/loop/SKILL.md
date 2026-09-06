@@ -2,7 +2,7 @@
 name: loop
 description: Invoke to drive outstanding code review findings to zero in a GitHub Pull Request (PR). /codereview:loop checks what CodeRabbit, Greptile, or any other coding agent found, and hands the findings text to /codereview:fix. After the review is complete, /codereview:loop, pushes the result, waits for the next review to complete. It repeats until there's no more issue on the GitHub code review; the skill NEVER fixes issue directly.
 metadata:
-  version: "0.7.0"
+  version: "0.7.1"
 ---
 
 # codereview:loop — cycle a Pull Request (PR) until all findings are fixed
@@ -195,7 +195,7 @@ A `CHANGES_REQUESTED` from a **person** is a different thing, and this skill nev
 
 Any of these stops the loop. Raise an ERROR and give the reason — which one fired, and what is still open.
 
-- **Cycle cap.** Five cycles without reaching zero open findings. The coding agent and the fixes are going round in circles, and someone should look.
+- **Cycle cap.** Ten cycles without reaching zero open findings. The coding agent and the fixes are going round in circles, and someone should look.
 - **The PR was closed or merged** while the loop was running.
 - **`/codereview:fix` refused** because of one of its own rules. Quote its exact message. Never work around a refusal.
 - **The user, or the agent that called `/codereview:loop`, said stop.**
