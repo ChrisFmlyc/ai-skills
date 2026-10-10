@@ -50,7 +50,14 @@ Do not run the install command yourself. The user decides what third-party code 
 
 If you were called without a title or body, there is nothing to rewrite. STOP and raise an ERROR saying no title or body was supplied.
 
-Read the diff as well, `git diff origin/HEAD...HEAD`. You check every claim in the draft against it.
+Read the diff as well. You check every claim in the draft against it. Find the default branch first, because `origin/HEAD` is not set in every clone:
+
+```bash
+git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+  || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null
+```
+
+Call what it prints `BASE`, for example `origin/main`, and read the diff with `git diff BASE...HEAD`. If it prints nothing, do not run the diff. Tell the calling agent the default branch could not be found, and ask which branch the PR merges into. Use `origin/<that branch>` as `BASE`.
 
 ## 3. Read the repo's own rules
 
@@ -58,7 +65,7 @@ Some repos set their own PR title rules. Look for them before you use the defaul
 
 - a commitlint config (`commitlint.config.*`, `.commitlintrc*`), or a workflow that checks PR titles, usually `amannn/action-semantic-pull-request`
 - `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md`
-- recent commit subjects on the default branch: `git log --format=%s -30 origin/HEAD`
+- recent commit subjects on the default branch: `git log --format=%s -30 BASE`
 
 Where the repo sets a rule, such as its own type list, required scopes, or a template with sections, follow the repo. The git log shows which scopes are in use and how they are spelled. Anything the repo leaves open comes from the rules below.
 
