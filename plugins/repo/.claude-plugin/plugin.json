@@ -1,7 +1,7 @@
 {
   "name": "repo",
   "description": "Personal repo workflow helpers \u2014 new-repo bootstrap, branch-policy enforcement, new-branch creation, PR description hygiene, and post-merge sync.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "author": {
     "name": "Chris Powell"
   }
