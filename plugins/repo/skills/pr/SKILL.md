@@ -37,7 +37,7 @@ If the check missed the agent you are running in, add its flag. Then tell the us
 > npx skills add theclaymethod/unslop -g -a claude-code -a cursor -a codex
 > ```
 >
-> It installs [theclaymethod/unslop](https://github.com/theclaymethod/unslop) for each agent listed. Tell me when it has finished and I'll carry on with this PR.
+> It installs [theclaymethod/unslop](https://github.com/theclaymethod/unslop) for each agent listed. It is third-party code, so read the repo before you run it. Tell me when it has finished and I'll carry on with this PR.
 
 Wait for the reply, then look for `unslop` again.
 
