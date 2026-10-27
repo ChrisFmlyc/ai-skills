@@ -108,6 +108,7 @@ It reads the command the way the shell will run it. It follows `cd`, `git -C`, v
 - `git merge` on `main` / `master` unless it is `--ff-only`, `--squash`, `--no-commit` or `--abort`
 - `git -c core.hooksPath=…`, and setting it with `git config core.hooksPath …` or `git config set core.hooksPath …`, which skip the repository's git hooks; reading or unsetting it is fine
 - `git worktree add <path>` when git would create a branch named after the folder
+- `git branch -m` / `-M` that renames another branch onto `main` / `master`, or to a name that fails the regex (renaming `master` to `main` is fine)
 
 It cannot see everything, so the rules still bind you wherever it stays silent:
 

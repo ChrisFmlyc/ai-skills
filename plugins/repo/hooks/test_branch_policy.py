@@ -212,6 +212,19 @@ class Rule3Bypasses(Repos):
         self.allowed('git branch -m master main')
         self.allowed('git branch -m feat/a feat/b', self.feature)
         self.allowed('git branch -m feat/x', self.feature)
+        self.allowed('git branch -m main master')
+
+    def test_renaming_onto_main(self):
+        for cmd in ('git branch -M main', 'git branch -m master', 'git branch -m fix/thing main',
+                    'git branch -M feat/existing master'):
+            self.assertIn('without a Pull Request', self.blocked(cmd, self.feature))
+        self.allowed('git branch -m "$NOT_SET_HERE" main', self.feature)
+
+    def test_rename_target_must_match_the_regex(self):
+        for cmd in ('git branch -m fix/thing wip_stuff', 'git branch -m Bad', 'git branch --move feat/x feature/y'):
+            self.assertIn('Refusing to create branch', self.blocked(cmd, self.feature))
+        self.allowed('git branch -m old_branch feat/good', self.feature)
+        self.allowed('git branch -m feat/x "$NOT_SET_HERE"', self.feature)
 
 
 class QuotedTextIsNotACommand(Repos):

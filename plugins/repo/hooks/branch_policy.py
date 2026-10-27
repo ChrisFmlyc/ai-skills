@@ -5,9 +5,10 @@ Applies the rules in skills/branch/SKILL.md to a Bash command before it runs:
 
 1. No commit-producing git command on main or master, apart from /repo:init's
    first commit ("New repo initialisation" on a branch with no commits yet).
-2. Every branch a command creates matches BRANCH_RE.
+2. Every branch a command creates or renames to matches BRANCH_RE.
 3. No bypass routes: --no-verify, a core.hooksPath override, a push that writes
-   main or master from another ref, or renaming main or master away.
+   main or master from another ref, renaming main or master away, or renaming
+   another branch onto them.
 
 A violation exits 2 with the reason on stderr, which blocks the command and
 shows the reason to the agent. Anything the hook cannot work out, such as a
@@ -46,6 +47,10 @@ REFUSE_PUSH = (
     'Push your own branch and open a Pull Request (PR) instead.'
 )
 REFUSE_RENAME = 'Refusing to rename `{old}` to `{new}`: renaming main or master is a route to committing on it.'
+REFUSE_RENAME_ONTO = (
+    'Refusing to rename `{old}` to `{new}`: that puts another branch\'s commits on main or master '
+    'without a Pull Request (PR). Push your own branch and open a PR instead.'
+)
 
 NOREPO, UNKNOWN = 'no-repo', 'unknown'
 NAME_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
@@ -696,9 +701,13 @@ class Shell:
             return None
         if flags & {'-m', '-M', '--move'}:
             old, new = (positional[0], positional[1]) if len(positional) > 1 else (self.repos.branch(d), positional[0])
-            if old in PROTECTED and new is not None and new not in PROTECTED:
+            if new in PROTECTED:
+                if old is not None and old not in PROTECTED:
+                    return REFUSE_RENAME_ONTO.format(old=old, new=new)
+                return None
+            if old in PROTECTED and new is not None:
                 return REFUSE_RENAME.format(old=old, new=new)
-            return None
+            return self.validate(new, 'git branch --move')
         if flags & {'-c', '-C', '--copy'}:
             return self.validate(positional[-1], 'git branch --copy')
         return self.validate(positional[0], 'git branch')
