@@ -205,6 +205,15 @@ class Rule3Bypasses(Repos):
                     'git config set user.name x', 'git config core.hooksPathX x', 'git config "$K" /dev/null'):
             self.allowed(cmd, self.feature)
 
+    def test_hooks_path_by_section_rename(self):
+        for cmd in ('git config --rename-section staging core', 'git config rename-section staging core',
+                    'git config --global --rename-section a.b CORE', 'git config rename-section -f .git/config x Core'):
+            self.assertIn('core.hooksPath', self.blocked(cmd, self.feature))
+        for cmd in ('git config --rename-section staging core.x', 'git config rename-section core staging',
+                    'git config --rename-section staging other', 'git config rename-section staging "$NEW"',
+                    'git config --rename-section staging', 'git config --remove-section core'):
+            self.allowed(cmd, self.feature)
+
     def test_push_to_main_from_another_ref(self):
         for cmd in ('git push origin HEAD:main', 'git push origin fix/thing:refs/heads/master',
                     'git push origin +HEAD:main', 'git push origin :main', 'git push --repo=origin HEAD:main'):

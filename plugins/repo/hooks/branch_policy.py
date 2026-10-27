@@ -42,6 +42,10 @@ REFUSE_NAME = (
 )
 REFUSE_NO_VERIFY = 'Refusing `{cmd}` with --no-verify: git hooks must run. Fix what the hook reports instead.'
 REFUSE_HOOKS_PATH = 'Refusing to override core.hooksPath: that skips the repository\'s git hooks.'
+REFUSE_CONFIG_RENAME = (
+    'Refusing to rename a config section to `core`: that carries any hooksPath key it holds '
+    'into core.hooksPath, which skips the repository\'s git hooks.'
+)
 REFUSE_PUSH = (
     'Refusing `git push {spec}`: it writes `{dst}` from another ref. '
     'Push your own branch and open a Pull Request (PR) instead.'
@@ -70,7 +74,7 @@ BRANCH_NOT_CREATING = {
 CONFIG_VALUE_OPTIONS = {'-f', '--file', '--blob', '-t', '--type', '--default', '--comment', '--value', '--url'}
 CONFIG_NOT_WRITING = {
     '--get', '--get-all', '--get-regexp', '--get-urlmatch', '--get-color', '--get-colorbool',
-    '--unset', '--unset-all', '--rename-section', '--remove-section', '-l', '--list', '-e', '--edit',
+    '--unset', '--unset-all', '--remove-section', '-l', '--list', '-e', '--edit',
 }
 
 
@@ -778,7 +782,7 @@ class Shell:
         return None
 
     def git_config(self, sub, rest, d):
-        """Refuse a persistent write to core.hooksPath; reads and unsets are fine."""
+        """Refuse a persistent write to core.hooksPath, directly or by a section rename; reads and unsets are fine."""
         flags, positional, i = set(), [], 0
         while i < len(rest):
             a = rest[i]
@@ -793,11 +797,20 @@ class Shell:
             else:
                 flags.add(a)
             i += 1
-        # `git config set <name> <value>` is the only subcommand that writes. The
-        # others (get, unset, list, ...) leave the subcommand as the first word,
-        # which is never core.hooksPath, so they fall through as allowed.
+        # `git config set <name> <value>` writes a key and `rename-section` is
+        # handled below. The others (get, unset, list, ...) leave the subcommand as
+        # the first word, which is never core.hooksPath, so they fall through as allowed.
         if positional[:1] == ['set']:
             positional = positional[1:]
+        # Renaming a section to `core` moves its keys with it, so a hooksPath set
+        # under another section (`git config staging.hooksPath x`) becomes
+        # core.hooksPath. Renames to anything else cannot produce that key.
+        if positional[:1] == ['rename-section']:
+            flags.add('--rename-section')
+            positional = positional[1:]
+        if '--rename-section' in flags:
+            new = positional[1] if len(positional) > 1 else None
+            return REFUSE_CONFIG_RENAME if new is not None and new.lower() == 'core' else None
         if flags & CONFIG_NOT_WRITING or len(positional) < 2 or positional[0] is None:
             return None
         return REFUSE_HOOKS_PATH if positional[0].lower() == 'core.hookspath' else None
