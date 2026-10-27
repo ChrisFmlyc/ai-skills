@@ -13,7 +13,8 @@ sys.path.insert(0, HERE)
 import branch_policy  # noqa: E402
 
 GIT_ENV = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
-               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com', GIT_CONFIG_NOSYSTEM='1')
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com', GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=os.devnull)
 
 
 def git(cwd, *args):
