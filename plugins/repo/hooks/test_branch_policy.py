@@ -124,6 +124,15 @@ class Rule1InitException(Repos):
         self.blocked('git init -b main && git commit -m "New repo initialisation" && '
                      'git commit -m "New repo initialisation"', fresh)
 
+    def test_repo_init_inside_another_repo(self):
+        nested = os.path.join(self.main, 'nested')
+        os.makedirs(nested)
+        self.allowed('git init -b main\nprintf "DELETE ME\\n" > README.md\ngit add README.md\n'
+                     'git commit -m "New repo initialisation"', nested)
+        self.allowed('git init -b main nested && cd nested && git commit -m "New repo initialisation"')
+        self.blocked('git init -b main nested && git commit -m "New repo initialisation"')
+        self.blocked('git init -b main && git commit -m "New repo initialisation"')
+
     def test_unborn_repo(self):
         self.allowed('git commit -m "New repo initialisation"', self.unborn)
         self.blocked('git commit -m "something else"', self.unborn)

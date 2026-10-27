@@ -413,6 +413,11 @@ class Repos:
         if d is not None:
             self.states[self.key(d)[0]] = state
 
+    def init(self, d, state):
+        """Record that `git init` made d a repository of its own, even inside another one."""
+        self.keys[d] = (os.path.normpath(d), True)
+        self.set(d, state)
+
     def branch(self, d):
         st = self.state(d)
         return st[0] if isinstance(st, tuple) else None
@@ -818,11 +823,14 @@ class Shell:
                 positional.append(a)
             i += 1
         target = self.path(d, positional[0]) if positional else d
-        if target is None or bare or self.repos.state(target) != NOREPO:
+        if target is None or bare:
             return None
+        top, is_repo = self.repos.key(target)
+        if is_repo and os.path.realpath(top) == os.path.realpath(target):
+            return None  # re-initialising an existing repository leaves its branch alone
         if not given:
             branch = _git(self.env.get('HOME') or '/', 'config', '--get', 'init.defaultBranch') or 'master'
-        self.repos.set(target, UNKNOWN if branch is None else (branch, True))
+        self.repos.init(target, UNKNOWN if branch is None else (branch, True))
         return None
 
     HANDLERS = {
