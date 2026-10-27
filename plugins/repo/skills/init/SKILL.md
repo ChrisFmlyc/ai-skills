@@ -60,8 +60,8 @@ If no slug could be suggested, drop option (a) and ask: "What should this repo b
 1. **"a" / yes / use the suggestion** → proceed with `<suggested-slug>`.
 2. **User types a slug directly** (matches `^[a-z0-9][a-z0-9._-]*$`, length ≤ 100) → use it verbatim. If validation fails, show the issue and ask again.
 3. **User types a description** (free text, not a valid slug) → propose a slug from it using the same normalisation rules. Show the proposal and confirm before running.
-4. **User pastes a URL** (starts with `https://`, `http://`, `git@`, or `ssh://`) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
-   1. Accept the URL only if the whole of it matches `^(https://|http://|ssh://|git@)[A-Za-z0-9._~:/@%+-]+$`. That covers every ordinary remote URL and rules out whitespace, newlines, quotes, `$`, `;` and anything else a shell would act on. If it does not match, show it back, say which character is the problem, and ask again.
+4. **User pastes a URL** (starts with `https://`, `git@`, or `ssh://`; a plain `http://` URL also lands here and is refused at step 1) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
+   1. Accept the URL only if the whole of it matches `^(https://|ssh://|git@)[A-Za-z0-9._~:/@%+-]+$`. That covers every ordinary remote URL and rules out whitespace, newlines, quotes, `$`, `;` and anything else a shell would act on. If it does not match, show it back, say which character is the problem, and ask again. An `http://` URL fails on purpose: plain HTTP sends the code and any credentials unencrypted, so ask for the `https://` or SSH form instead.
    2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then read back the push URL git will use. `url.<base>.insteadOf` and `pushInsteadOf` rules in the user's git config can rewrite it:
       ```bash
       git remote add -- origin '<url>'
