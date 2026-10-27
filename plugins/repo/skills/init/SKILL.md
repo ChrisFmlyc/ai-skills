@@ -68,9 +68,9 @@ If no slug could be suggested, drop option (a) and ask: "What should this repo b
       git remote get-url --push origin
       ```
    3. Ask: *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
-   4. Push:
+   4. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch:
       ```bash
-      git push -u origin main
+      git push -u origin refs/heads/main:refs/heads/main
       ```
    Done — print the push URL and a one-line summary.
 
