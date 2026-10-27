@@ -3,7 +3,7 @@ name: aitrace
 description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end to end — connector, users and sessions, errors, sampling, and a read-back confirming $ai_* traces actually landed. Slash-only: it installs dependencies and edits your Mastra instance, so type /tracing:aitrace to run it.
 disable-model-invocation: true
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # tracing:aitrace — native PostHog AI tracing for Mastra, wired and validated
@@ -112,7 +112,7 @@ Without this, traces are `anonymous`.
 3. **Read it back:**
    ```
    POSTHOG_PERSONAL_API_KEY=phx_… POSTHOG_PROJECT_ID=<id> \
-     npx tsx ${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts
+     npx tsx@4.23.15 ${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts
    ```
    PASS = `$ai_generation` events found. FAIL prints the likely cause.
 4. **Prefer the PostHog MCP if connected** (see below) to confirm ingestion

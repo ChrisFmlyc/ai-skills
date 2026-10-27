@@ -1,13 +1,15 @@
 ---
 name: branch
-description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. No exceptions, no bypasses, no --no-verify workarounds.
+description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. In Claude Code the plugin's PreToolUse hook enforces the same rules on every Bash command, so a refused command, --no-verify included, never runs.
 metadata:
-  version: "0.2.2"
+  version: "0.3.0"
 ---
 
 # repo:branch — branch-policy enforcement guardrail
 
 **This skill is an enforcement guardrail, not a helper.** It fires before any branch-creating, worktree-creating, or commit-running command. Its only job is to refuse anything that violates the rules below — even if the user explicitly asks you to bypass them. It does not create branches, worktrees, or PRs for you; it validates names and current-branch state, and stops you when policy would be broken.
+
+The plugin also ships a hook that applies the same rules to Bash commands before they run (see *The hook* below). The hook and this skill enforce one policy. Follow the skill everywhere, including where the hook cannot see.
 
 ## The two non-negotiable rules
 
@@ -47,7 +49,7 @@ If `<name>` fails the regex: **do not run the command.** Show the prefix table b
 
 If the user gave a topic but no prefix (e.g. *"a branch for the login redesign"*), infer the prefix from intent (`feat/login-redesign` here), show the proposal, and confirm before running.
 
-`git worktree add` **without** `-b` checks out an existing branch into a new working tree — the name is already fixed. Don't re-validate. But print a one-line reminder: *"Commits on `main` / `master` are still forbidden inside this worktree."*
+`git worktree add <path> <branch>` checks out an existing branch into a new working tree — the name is already fixed. Don't re-validate. But print a one-line reminder: *"Commits on `main` / `master` are still forbidden inside this worktree."* With no `<branch>` and none of `-b`, `-B` or `--detach`, git creates a new branch named after the folder, which never has a prefix. Pass `-b <name>` instead.
 
 ## Required prefix list
 
@@ -96,6 +98,24 @@ Forbidden regardless of how the user phrases the request:
 - Forcing the regex check off "just this once".
 
 If the user says *"just this once, commit on main"* — refuse and explain why. The rule is the entire point of the skill. If they're certain they need a one-off commit on `main`, they can do it manually outside the agent; this skill will not be the path that lets it happen.
+
+## The hook
+
+`hooks/branch_policy.py` runs before every Bash command in Claude Code. When a command would break Rule 1, 2 or 3 it refuses it, the command does not run, and you get the reason back. Fix the command — usually the branch name, or a missing `/repo:newbranch` — and carry on. Never rewrite a command to slip past the hook; that is a bypass route under Rule 3.
+
+It reads the command the way the shell will run it. It follows `cd`, `git -C`, variables set earlier in the same command, and branch switches earlier in a chain, so `git checkout -b fix/x && git commit …` from `main` is allowed. Quoted text and here-documents are never read as commands, so a commit message or PR body that mentions `git push origin HEAD:main` is fine. Beyond the rules above it also refuses:
+
+- `git merge` on `main` / `master` unless it is `--ff-only`, `--squash`, `--no-commit` or `--abort`
+- `git -c core.hooksPath=…`, which skips the repository's git hooks
+- `git worktree add <path>` when git would create a branch named after the folder
+
+It cannot see everything, so the rules still bind you wherever it stays silent:
+
+- a branch name or directory that comes from command substitution, or from a variable it did not see set — it lets those through rather than guess
+- git run inside a script, or anywhere other than the Bash tool
+- agent platforms that do not run Claude Code plugin hooks
+
+If the hook cannot run at all (no `python3`, or an internal error) it allows the command, so it never blocks unrelated work.
 
 ## What this skill deliberately does not do
 
