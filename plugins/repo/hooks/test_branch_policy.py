@@ -182,6 +182,19 @@ class Rule3Bypasses(Repos):
         self.blocked('git -c core.hookspath=x push', self.feature)
         self.allowed('git -c user.name=x commit -m x', self.feature)
 
+    def test_hooks_path_in_config(self):
+        for cmd in ('git config core.hooksPath /dev/null', 'git config --global core.hookspath x',
+                    'git config --file .git/config Core.HooksPath x', 'git config --add core.hooksPath x',
+                    'git config --replace-all core.hooksPath x', 'git config -t path core.hooksPath x',
+                    'git config set core.hooksPath x', 'git config set --global --comment y core.hooksPath x',
+                    'git -C %s config core.hooksPath "$UNSET_VALUE"' % self.feature):
+            self.assertIn('core.hooksPath', self.blocked(cmd, self.feature))
+        for cmd in ('git config core.hooksPath', 'git config --get core.hooksPath', 'git config get core.hooksPath',
+                    'git config --unset core.hooksPath', 'git config unset core.hooksPath',
+                    'git config --unset-all core.hooksPath x', 'git config --list', 'git config user.name x',
+                    'git config set user.name x', 'git config core.hooksPathX x', 'git config "$K" /dev/null'):
+            self.allowed(cmd, self.feature)
+
     def test_push_to_main_from_another_ref(self):
         for cmd in ('git push origin HEAD:main', 'git push origin fix/thing:refs/heads/master',
                     'git push origin +HEAD:main', 'git push origin :main', 'git push --repo=origin HEAD:main'):

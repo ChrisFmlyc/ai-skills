@@ -106,7 +106,7 @@ If the user says *"just this once, commit on main"* — refuse and explain why. 
 It reads the command the way the shell will run it. It follows `cd`, `git -C`, variables set earlier in the same command, and branch switches earlier in a chain, so `git checkout -b fix/x && git commit …` from `main` is allowed. Quoted text and here-documents are never read as commands, so a commit message or PR body that mentions `git push origin HEAD:main` is fine. Beyond the rules above it also refuses:
 
 - `git merge` on `main` / `master` unless it is `--ff-only`, `--squash`, `--no-commit` or `--abort`
-- `git -c core.hooksPath=…`, which skips the repository's git hooks
+- `git -c core.hooksPath=…`, and setting it with `git config core.hooksPath …` or `git config set core.hooksPath …`, which skip the repository's git hooks; reading or unsetting it is fine
 - `git worktree add <path>` when git would create a branch named after the folder
 
 It cannot see everything, so the rules still bind you wherever it stays silent:

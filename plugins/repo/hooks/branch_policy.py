@@ -40,7 +40,7 @@ REFUSE_NAME = (
     'neither start nor end with a hyphen. Run /repo:branch for a corrected name.{hint}'
 )
 REFUSE_NO_VERIFY = 'Refusing `{cmd}` with --no-verify: git hooks must run. Fix what the hook reports instead.'
-REFUSE_HOOKS_PATH = 'Refusing to override core.hooksPath for this git command: that skips the repository\'s git hooks.'
+REFUSE_HOOKS_PATH = 'Refusing to override core.hooksPath: that skips the repository\'s git hooks.'
 REFUSE_PUSH = (
     'Refusing `git push {spec}`: it writes `{dst}` from another ref. '
     'Push your own branch and open a Pull Request (PR) instead.'
@@ -61,6 +61,11 @@ BRANCH_NOT_CREATING = {
     '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at',
     '--sort', '--format', '--column', '--no-column', '-u', '--set-upstream-to', '--unset-upstream',
     '--edit-description', '-i', '--ignore-case', '--omit-empty', '-h',
+}
+CONFIG_VALUE_OPTIONS = {'-f', '--file', '--blob', '-t', '--type', '--default', '--comment', '--value', '--url'}
+CONFIG_NOT_WRITING = {
+    '--get', '--get-all', '--get-regexp', '--get-urlmatch', '--get-color', '--get-colorbool',
+    '--unset', '--unset-all', '--rename-section', '--remove-section', '-l', '--list', '-e', '--edit',
 }
 
 
@@ -758,6 +763,31 @@ class Shell:
                 return REFUSE_PUSH.format(spec=' '.join(a or '…' for a in positional), dst=_short(dst))
         return None
 
+    def git_config(self, sub, rest, d):
+        """Refuse a persistent write to core.hooksPath; reads and unsets are fine."""
+        flags, positional, i = set(), [], 0
+        while i < len(rest):
+            a = rest[i]
+            if a == '--':
+                positional += rest[i + 1:]
+                break
+            if a in CONFIG_VALUE_OPTIONS:
+                i += 2
+                continue
+            if a is None or not a.startswith('-'):
+                positional.append(a)
+            else:
+                flags.add(a)
+            i += 1
+        # `git config set <name> <value>` is the only subcommand that writes. The
+        # others (get, unset, list, ...) leave the subcommand as the first word,
+        # which is never core.hooksPath, so they fall through as allowed.
+        if positional[:1] == ['set']:
+            positional = positional[1:]
+        if flags & CONFIG_NOT_WRITING or len(positional) < 2 or positional[0] is None:
+            return None
+        return REFUSE_HOOKS_PATH if positional[0].lower() == 'core.hookspath' else None
+
     # Repository creation, for /repo:init's first commit ---------------------------
 
     def git_init(self, sub, rest, d):
@@ -798,6 +828,7 @@ class Shell:
         'branch': git_branch,
         'worktree': git_worktree,
         'push': git_push,
+        'config': git_config,
         'init': git_init,
     }
 
