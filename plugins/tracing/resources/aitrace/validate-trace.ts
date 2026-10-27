@@ -6,7 +6,7 @@
  *
  *   1) run your app once so it emits a trace, then
  *   2) POSTHOG_PERSONAL_API_KEY=phx_… POSTHOG_PROJECT_ID=12345 \
- *        npx tsx validate-trace.ts
+ *        npx tsx@4.23.15 validate-trace.ts
  *
  * It reads back from PostHog (needs a personal API key, phx_…, + project id —
  * these are READ creds, distinct from the phc_ project token used to send).

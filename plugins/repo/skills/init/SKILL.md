@@ -2,7 +2,7 @@
 name: init
 description: Invoke when the current directory needs to become a new git repo — "init this as a new repo", "set up a new repo here". /repo:init runs git init in the directory you are already in, never wrapping it in a new folder, then commits a placeholder README, wires origin, and pushes main; everything after that first commit goes via a branch and a Pull Request (PR).
 metadata:
-  version: "0.2.1"
+  version: "0.3.0"
 ---
 
 # repo:init — bootstrap a new repo in the current directory
@@ -60,12 +60,19 @@ If no slug could be suggested, drop option (a) and ask: "What should this repo b
 1. **"a" / yes / use the suggestion** → proceed with `<suggested-slug>`.
 2. **User types a slug directly** (matches `^[a-z0-9][a-z0-9._-]*$`, length ≤ 100) → use it verbatim. If validation fails, show the issue and ask again.
 3. **User types a description** (free text, not a valid slug) → propose a slug from it using the same normalisation rules. Show the proposal and confirm before running.
-4. **User pastes a URL** (starts with `https://`, `http://`, `git@`, or `ssh://`) → **skip `gh repo create` entirely**. Run:
-   ```bash
-   git remote add origin <url>
-   git push -u origin main
-   ```
-   Done — print the URL and a one-line summary.
+4. **User pastes a URL** (starts with `https://`, `git@`, or `ssh://`; a plain `http://` URL also lands here and is refused at step 1) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
+   1. Accept the URL only if the whole of it matches `^(https://|ssh://|git@)[A-Za-z0-9._~:/@%+-]+$`. That covers every ordinary remote URL and rules out whitespace, newlines, quotes, `$`, `;` and anything else a shell would act on. If it does not match, show it back, say which character is the problem, and ask again. An `http://` URL fails on purpose: plain HTTP sends the code and any credentials unencrypted, so ask for the `https://` or SSH form instead.
+   2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then read back the push URL git will use. `url.<base>.insteadOf` and `pushInsteadOf` rules in the user's git config can rewrite it:
+      ```bash
+      git remote add -- origin '<url>'
+      git remote get-url --push origin
+      ```
+   3. Ask: *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
+   4. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch:
+      ```bash
+      git push -u origin refs/heads/main:refs/heads/main
+      ```
+   Done — print the push URL and a one-line summary.
 
 ## Cases 1–3: create on GitHub
 
@@ -85,6 +92,7 @@ If no slug could be suggested, drop option (a) and ask: "What should this repo b
 - Any form of `--force` / `-f`. Force-pushing a brand-new `main` is never warranted.
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
 - Running `gh repo create` without an explicit yes from the user in their own words.
+- Pushing to a pasted URL before the user has confirmed the push URL git reports.
 - `--no-verify`, `--no-gpg-sign`.
 
 ## Exit state

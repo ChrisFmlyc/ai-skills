@@ -1,0 +1,17 @@
+{
+  "description": "Branch policy for /repo:branch: blocks commits on main or master, branch names without a required prefix, and hook bypasses in Bash commands",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}/hooks/branch_policy.py\"; [ -f \"$f\" ] && command -v python3 >/dev/null 2>&1 || exit 0; exec python3 \"$f\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
