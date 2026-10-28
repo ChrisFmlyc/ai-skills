@@ -193,14 +193,16 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
      [ -n "$BASE_REPO" ] || { echo "ERROR: no base repository in the PR URL $URL" >&2; exit 1; }
      SRC=origin
      ORIGIN_URL=$(git remote get-url --push origin)
+     # messages only: an HTTPS remote can carry user:token@ before the host, and an ERROR is passed on verbatim
+     redact() { printf '%s\n' "$1" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://).*@#\1***@#'; }
      ORIGIN_REPO=$(printf '%s\n' "$ORIGIN_URL" | sed -E 's#\.git$##; s#^.*[:/]([^/:]+/[^/:]+)$#\1#')
      if [ "$(printf '%s' "$BASE_REPO" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "$ORIGIN_REPO" | tr '[:upper:]' '[:lower:]')" ]; then
        # a PR from a fork: origin's URL, with the base repository's owner/name at its end
        SRC=$(printf '%s\n' "$ORIGIN_URL" | sed -nE "s#[^/:]+/[^/:]+\$#$BASE_REPO#p")
-       [ -n "$SRC" ] || { echo "ERROR: cannot build a fetch URL for $BASE_REPO from $ORIGIN_URL" >&2; exit 1; }
+       [ -n "$SRC" ] || { echo "ERROR: cannot build a fetch URL for $BASE_REPO from $(redact "$ORIGIN_URL")" >&2; exit 1; }
      fi
      REF="refs/codereview/pr-$N-base"
-     git fetch --quiet --no-tags "$SRC" "+refs/heads/$BASE:$REF" || { echo "ERROR: git fetch of $BASE from $SRC failed" >&2; exit 1; }
+     git fetch --quiet --no-tags "$SRC" "+refs/heads/$BASE:$REF" || { echo "ERROR: git fetch of $BASE from $(redact "$SRC") failed" >&2; exit 1; }
    else
      # no PR: fall back to origin's default branch, asked of origin itself. The local
      # refs/remotes/origin/HEAD is set at clone time and no fetch moves it, so after a rename it names a dead branch
