@@ -145,7 +145,7 @@ codex plugin add <plugin>@ai-skills
 
 Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or air-gapped machine, clone the repo and pass its path instead: `codex plugin marketplace add ~/code/ai-skills`.
 
-**A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. After installing `repo`, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. An upgrade that changes the plugin's files marks the hook modified, and it stops running until it is trusted again, so ask again after every upgrade. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
+**A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. After installing `repo`, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. Any change to the plugin's files, an upgrade or any other edit, marks the hook modified, and it stops running until it is trusted again. Upgrades are the usual cause, so ask again after every upgrade, and after any other edit to the plugin's files. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
 
 ### Cursor
 
