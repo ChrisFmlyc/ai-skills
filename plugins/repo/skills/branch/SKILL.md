@@ -114,7 +114,7 @@ It cannot see everything, so the rules still bind you wherever it stays silent:
 
 - a branch name or directory that comes from command substitution, or from a variable it did not see set — it lets those through rather than guess
 - git run inside a script, or anywhere other than the Bash tool
-- agent platforms that do not run Claude Code plugin hooks, and Codex before the hook is trusted or after an upgrade changes it. Codex skips it then without saying so
+- agent platforms that do not run Claude Code plugin hooks, and Codex before the hook is trusted, or after an upgrade changes any of the plugin's files, until it is trusted again. Codex skips it then without saying so
 
 If the hook cannot run at all (no `python3`, or an internal error) it allows the command, so it never blocks unrelated work.
 
