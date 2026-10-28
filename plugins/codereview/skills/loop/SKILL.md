@@ -158,7 +158,10 @@ Give it the block. It sends back one answer per finding:
 **The behind-the-base ERROR is yours to clear, and you must clear it before re-entering.** You own this branch, so bring it current, run the project's checks, then re-run `/codereview:fix`. Use the `baseRefName` you checked in *Before you start*, never one re-read from the PR. Fetch it from the base repository found in *Before you start* step 6 into a ref of its own, then merge that ref:
 
 ```bash
-git fetch --quiet --no-tags '<source>' '+refs/heads/<baseRefName>:refs/codereview/pr-<n>-base' || { echo 'ERROR: git fetch of <baseRefName> from <source> failed' >&2; exit 1; }
+SRC='<source>'
+# messages only: an HTTPS remote can carry user:token@ before the host, and an ERROR is passed on verbatim
+redact() { printf '%s\n' "$1" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://).*@#\1***@#'; }
+git fetch --quiet --no-tags "$SRC" '+refs/heads/<baseRefName>:refs/codereview/pr-<n>-base' || { echo "ERROR: git fetch of <baseRefName> from $(redact "$SRC") failed" >&2; exit 1; }
 git merge --no-edit 'refs/codereview/pr-<n>-base'
 ```
 
