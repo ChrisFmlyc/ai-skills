@@ -1,152 +1,154 @@
 ---
 name: newbranch
-description: Invoke when starting a new piece of work that needs its own branch and worktree. /repo:newbranch syncs local main with origin first, turns a one-line description into a <prefix>/<slug> branch name, checks that name against /repo:branch's rules, confirms it with the user, then creates a git worktree at ../<repo>-worktrees/<prefix>-<slug>; it never commits, pushes, or opens a PR.
-disable-model-invocation: true
+description: Creates a branch and dedicated worktree for new work from a clean default branch synchronised with its remote. Use when starting new work, directly or through a caller such as /spades:scope; use --resume <branch> to continue that branch's worktree. Owns default-branch preparation and worktree selection; returns the path without committing, pushing, opening a PR, or cleaning up other work.
 metadata:
-  version: "0.1.1"
+  version: "0.2.0"
 ---
 
-# repo:newbranch — sync, propose, confirm, create the worktree
+# repo:newbranch — prepare the base and return the worktree
 
-Closes the loop between `/repo:sync` (clean main) and `/repo:branch` (validates names). This skill takes a one-line description of the next piece of work, syncs first, proposes a `<prefix>/<slug>` branch name, confirms with you, then creates a git worktree off the latest `main`.
+New work follows one route:
 
-Slash-only — it writes a new worktree to disk, so invoke it deliberately.
+`main/master → new branch + worktree → commit → push → PR → merge`
 
-## 1. Read the description
+This skill owns default-branch cleanliness, remote freshness, naming and
+worktree creation. A caller supplies the description, invokes this skill,
+then performs its reads, writes, commands and agent dispatches in the
+returned worktree. `/spades:scope` calls it before composing a new Scope.
+Each branch's commits belong to that branch's PR, whatever its prefix.
 
-Anything after `/repo:newbranch` in the user's message is the description. If the message is just `/repo:newbranch` with nothing after it, ask once:
+## 1. Resolve the request and repository
 
-> What's the change about? One short sentence is fine — I'll propose a branch name.
+Accept the description from the human or caller; ask when absent.
+`--resume <branch>` selects existing work and goes to § Resume after
+resolving the repository. New work always gets a new branch and worktree.
 
-Wait for their next message and treat that as the description. Don't guess from earlier conversation context.
+Use `git rev-parse --show-toplevel` and `git worktree list --porcelain`.
+Derive the repository name and sibling `<repo>-worktrees` directory from
+the primary worktree, so linked-worktree calls use the same layout.
+Preserve the invocation worktree's branch, files and index throughout.
 
-## 2. Run sync first (always)
+Use the caller's configured remote, otherwise `origin` or the sole remote;
+ask if ambiguous. Discover its default branch from the remote's advertised
+HEAD. With no remote, use the sole existing `main` or `master`; ask if both
+exist. Require an existing default branch and commit.
 
-Follow the **`/repo:sync` skill body procedure verbatim** before doing anything else. The skill is cheap — at worst a single `git fetch` — and guarantees the new worktree is created off the latest `main`.
+Other branches' commits and dirty files stay in their existing worktrees.
+They neither enter the new branch nor block its creation. Inclusion
+questions concern the worktree being resumed or delivered (§ Resume).
 
-If sync **refuses** (dirty tree, detached HEAD, default-branch-undetectable, etc.): **stop**. Surface sync's exact refusal message. Do not create a branch. The user fixes the underlying issue and re-runs `/repo:newbranch`.
+## 2. Establish a clean, current default branch
 
-When sync succeeds it ends with one of three lines. Handle each:
+Find the worktree checking out `refs/heads/<default>` in the worktree
+listing. Run `git -C <default-worktree> status --porcelain=v1`. Any staged,
+unstaged or untracked entry is a dirty default checkout: report the paths
+and ask the human to resolve them before continuing. Preserve their files
+and staging. Other worktrees' status does not gate this step.
 
-- `On main, synced to origin (now at <sha>). No feature branch to clean up. Ready.` → proceed.
-- `On main, synced to origin … Cleaned up: <branch>. Ready.` → proceed.
-- `… Kept <branch> (upstream still exists / no upstream — not safe to delete automatically). Ready.` → the user has an unmerged feature branch checked out. **Pause** and ask:
-
-  > You're still on `<branch>` from an unmerged PR. Switch to `main` first, or shall I make the new worktree anyway off `main` (your unmerged branch stays intact)?
-
-  If they say go ahead, proceed — the worktree is always created off `main`, never off the current branch. If they want to switch, stop and let them.
-
-## 3. Generate the branch proposal
-
-Produce `<prefix>/<slug>` from the description.
-
-### Prefix inference
-
-Map keywords to one of `/repo:branch`'s seven prefixes:
-
-| Description hints                                     | Prefix       |
-|-------------------------------------------------------|--------------|
-| "add", "new", "build", "introduce", "support for"     | `feat/`      |
-| "fix", "broken", "bug", "regression", "wrong"         | `fix/`       |
-| "bump", "upgrade", "deps", "tidy", "remove unused", "ci", "github action", "workflow" | `chore/`     |
-| "document", "readme", "docstring", "comment"          | `docs/`      |
-| "restructure", "rename", "move", "extract", "refactor" (no behaviour change) | `refactor/`  |
-| "spike", "experiment", "try", "explore", "prototype", "rnd", "research" | `rnd/`       |
-| "urgent", "hotfix", "prod down", "production fix"     | `hotfix/`    |
-
-If the description doesn't clearly match one bucket, default to `feat/` and surface the assumption in your proposal message: *"(defaulted to `feat/` — say so if it's actually `fix/` / `chore/` / …)"*.
-
-### Slug generation
-
-1. Lowercase the description.
-2. Replace anything outside `[a-z0-9]` with `-`.
-3. Collapse runs of `-` to a single `-`.
-4. Trim leading/trailing `-`.
-5. If the slug is > 50 chars, truncate at the last `-` that's ≤ 50.
-
-Examples:
-- "add a dark mode toggle" → `feat/dark-mode-toggle`
-- "Fix the login redirect loop" → `fix/login-redirect-loop`
-- "bump vitest to v5" → `chore/bump-vitest-to-v5`
-- "spike on streaming LLM output" → `rnd/spike-on-streaming-llm-output`
-
-### Validate the proposal
-
-The proposed branch name must match `/repo:branch`'s authoritative regex:
-
-```
-^(feat|fix|chore|docs|refactor|rnd|hotfix)/[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$
-```
-
-If the generated slug ends up empty (description was only stopwords / punctuation) or otherwise fails the regex, tell the user and ask for a longer description.
-
-## 4. Confirm with the user via AskUserQuestion
-
-Present a single AskUserQuestion with three options:
-
-- **a)** `Use ${proposed} (Recommended)` — accept the proposal as-is.
-- **b)** `Regenerate from a new description` — user will type a new description.
-- **c)** `I'll type the full branch name myself` — user will type a verbatim name.
-
-### Branching on the user's choice
-
-**On (a):** proceed to step 5 with `${proposed}`.
-
-**On (b):** plain-text follow-up message:
-
-> OK, what's the change about?
-
-Wait for the next user message. Treat it as the new description. Go back to step 3. Loop until the user accepts a proposal or switches to (c).
-
-**On (c):** plain-text follow-up:
-
-> OK, type the exact branch name. It must match `^(feat|fix|chore|docs|refactor|rnd|hotfix)/[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$`.
-
-Wait for the next user message. Validate against the regex. If it fails, point at the specific rule that was broken (wrong prefix / uppercase / underscore / leading or trailing `-` / length / etc.) and show the prefix table from `/repo:branch`. Ask again. Loop until the input is valid, or the user redirects back to (a) / (b).
-
-## 5. Create the worktree
+With a remote:
 
 ```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
-REPO_NAME=$(basename "$REPO_ROOT")
-WORKTREE_DIR="$REPO_ROOT/../$REPO_NAME-worktrees/<prefix>-<slug>"
-git worktree add -b "<prefix>/<slug>" "$WORKTREE_DIR"
+git fetch <remote> refs/heads/<default>:refs/remotes/<remote>/<default>
+git rev-parse --verify refs/remotes/<remote>/<default>^{commit}
 ```
 
-The **branch name** keeps the slash (`feat/dark-mode-toggle`); the **worktree path** flattens it to a hyphen (`feat-dark-mode-toggle`) so the folder is one level deep under `<repo>-worktrees/`, not nested.
+Capture the returned commit as `BASE_SHA`. A fetch failure stops creation;
+a cached reference alone is not evidence of freshness. A rejected
+non-fast-forward update also needs human resolution.
 
-### Pre-checks (before running `git worktree add`)
+Compare local `refs/heads/<default>` with `BASE_SHA`. Local-only commits or
+divergence require human resolution: display the difference and stop.
+A successful pull alone does not detect a local branch that is ahead.
 
-- If `$WORKTREE_DIR` already exists on disk: **stop**, tell the user, and ask if they want to pick a different name or remove the existing dir manually. Don't clobber.
-- If the branch already exists locally — `git rev-parse --verify <prefix>/<slug>` succeeds — **stop** and ask:
+- **Default checked out and clean:** run
+  `git -C <default-worktree> pull --ff-only <remote> <default>`. Re-read the
+  remote-tracking SHA after pulling and require the local default to equal
+  it. Capture this verified commit as `BASE_SHA`.
+- **Default exists but is not checked out:** verify it is an ancestor of
+  `BASE_SHA`, then advance the existing reference with
+  `git update-ref refs/heads/<default> <BASE_SHA> <old-default-sha>`.
+  Recheck that it remains unoccupied before updating; stop on concurrent
+  checkout or reference changes. The invocation worktree stays untouched.
 
-  > Branch `<name>` already exists locally. Options:
-  > a) Add the worktree pointing at the existing branch (drop `-b`).
-  > b) Pick a different name (back to step 3 or 4c).
-  > c) Delete the old branch first (you'd do `git branch -D` yourself, then re-run).
+With no remote, use the clean local default branch's commit as `BASE_SHA`
+and report that no remote freshness check is applicable.
 
-  Don't auto-resolve.
+Finish by checking the default reference equals `BASE_SHA` and any default
+checkout remains clean. `/repo:sync` is a separate post-merge operation;
+creating new work requires no branch or worktree cleanup.
 
-## 6. Exit summary
+## 3. Name and validate
 
-One short message:
+Infer a prefix from the description:
 
-> Worktree ready: `<WORKTREE_DIR>` on branch `<prefix>/<slug>` off `origin/main` (`<short-sha>`). `cd` there to start working.
+| Intent | Prefix |
+|---|---|
+| Add functionality | `feat/` |
+| Fix a bug or regression | `fix/` |
+| Maintenance, dependencies, configuration, CI | `chore/` |
+| Documentation | `docs/` |
+| Restructure without changing behaviour | `refactor/` |
+| Research, experiment, spike | `rnd/` |
+| Urgent production fix | `hotfix/` |
 
-The skill does not `cd` for the user — its shell state is per-call. The user switches into the worktree path themselves.
+Lowercase the description, replace non-alphanumeric runs with hyphens,
+collapse and trim hyphens, and truncate at a word boundary to at most 50
+characters. An ambiguous intent defaults to `feat/`, stated in the
+proposal. Ask for a usable description if the slug is empty.
 
-## Forbidden in this skill
+Invoke `/repo:branch` for authoritative validation. Reuse an explicitly
+supplied or previously approved valid name. Otherwise use the structured
+question tool: accept the proposal, provide a new description, or type a
+name. The caller may answer within authority already granted by the human.
 
-- Skipping step 2 (the sync).
-- Creating the worktree off anything other than the default branch (always `main` / `master`, never the current feature branch).
-- Branch names that fail the `/repo:branch` regex.
-- `--force` on `git worktree add`.
-- Auto-resolving the "branch already exists" or "worktree dir exists" cases without asking.
-- Modifying files outside of git's internal metadata and the new worktree path.
+## 4. Create and verify
 
-## What this skill deliberately does not do
+Use `<primary-parent>/<repo>-worktrees/<prefix>-<slug>` as the path.
+If the path or branch exists, ask whether to resume it or choose another
+name; preserve it while awaiting the answer.
 
-- It does not commit, push, or open PRs.
-- It does not delete worktrees or branches afterwards. `/repo:sync` handles post-merge cleanup of the source branch; worktree directory cleanup is a separate, user-initiated step (`git worktree remove <path>`).
-- It does not stack branches off other feature branches — always branches from the default branch. Stacked branches stay manual.
-- It does not modify branch-protection rules on GitHub.
+Create with the captured start commit explicitly supplied:
+
+```bash
+git worktree add --no-track -b <branch> <worktree-path> <BASE_SHA>
+git -C <worktree-path> rev-parse --abbrev-ref HEAD
+git -C <worktree-path> rev-parse HEAD
+git -C <worktree-path> status --porcelain=v1
+```
+
+Require the requested branch, exactly `BASE_SHA`, and empty status. If a
+check fails, report the actual state and preserve the worktree for
+inspection. The branch will track its own remote branch when published.
+
+## Resume
+
+Resolve `--resume <branch>` through `git worktree list --porcelain`.
+Require an existing non-default branch. If it has a worktree, use that
+path. If it exists without one, validate through `/repo:branch` and attach
+it with `git worktree add <worktree-path> <branch>`. A missing branch
+requires clarification rather than silently recreating completed work.
+
+Committed work already belongs to this branch's PR and needs no inclusion
+question. Inspect both the index and working tree. Surface pre-existing
+uncommitted changes, including staged deletions and untracked files, and
+ask whether to include them in this work's next PR or leave them outside.
+Wait before incorporation. Reuse decisions already made for the same
+changes; edits known to come from the current authorised run also need no
+repeated question. Unknown changes within those same paths still need a
+decision. Preserve excluded content and staging. The committing caller
+checks the full proposed commit, not just the paths passed to `git add`.
+
+Resume retains the branch's commits and base. Default-branch preparation
+applies to new work, not to rewriting work already in progress.
+
+## Return to the caller
+
+Return the repository, branch, absolute worktree path, base commit (new
+work), and inclusion decisions (resume). Print:
+
+> Worktree ready: `<path>` on `<branch>`, starting at `<base-sha>`.
+
+The caller uses explicit command working directories or `git -C` and
+passes the same absolute path to its agents. A one-off shell `cd` does not
+persist session state. Existing branches and worktrees remain available;
+this skill does not stash, delete, reset, commit, push, or open a PR.

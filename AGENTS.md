@@ -65,9 +65,9 @@ These rules are non-negotiable. If a request would violate one, stop and explain
 ### Commit & PR conventions
 
 - Branch per change. Never commit directly to `main`. `/repo:branch` enforces this.
-- Conventional commit prefix: `feat(<plugin>):`, `fix(<plugin>):`, `chore:`, `docs:`.
+- Conventional commit prefix, such as `feat(<plugin>):`, `fix(<plugin>):` or `docs:`. `/repo:pr` has the full type list.
 - Open a PR so CodeRabbit can review. Do not push to `main` without one.
-- Run `/repo:pr` on the draft title and body before opening the PR. It owns the house style for both.
+- Run `/repo:pr` on the draft title and body before opening the PR. It owns the house style for both, and it needs the `/unslop` skill installed.
 - Never use `--no-verify` or `--no-gpg-sign`.
 
 ### Things to avoid
