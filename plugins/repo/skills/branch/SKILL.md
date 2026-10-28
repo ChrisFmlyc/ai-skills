@@ -1,8 +1,8 @@
 ---
 name: branch
-description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. In Claude Code the plugin's PreToolUse hook enforces the same rules on every Bash command, so a refused command, --no-verify included, never runs.
+description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. In Claude Code, and in Codex once the human has trusted it, the plugin's PreToolUse hook enforces the same rules on every Bash command, so a refused command, --no-verify included, never runs.
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # repo:branch — branch-policy enforcement guardrail
@@ -101,7 +101,7 @@ If the user says *"just this once, commit on main"* — refuse and explain why. 
 
 ## The hook
 
-`hooks/branch_policy.py` runs before every Bash command in Claude Code. When a command would break Rule 1, 2 or 3 it refuses it, the command does not run, and you get the reason back. Fix the command — usually the branch name, or a missing `/repo:newbranch` — and carry on. Never rewrite a command to slip past the hook; that is a bypass route under Rule 3.
+`hooks/branch_policy.py` runs before every Bash command in Claude Code, and in Codex once the human has trusted it with `/hooks`. When a command would break Rule 1, 2 or 3 it refuses it, the command does not run, and you get the reason back. Fix the command — usually the branch name, or a missing `/repo:newbranch` — and carry on. Never rewrite a command to slip past the hook; that is a bypass route under Rule 3.
 
 It reads the command the way the shell will run it. It follows `cd`, `git -C`, variables set earlier in the same command, and branch switches earlier in a chain, so `git checkout -b fix/x && git commit …` from `main` is allowed. Quoted text and here-documents are never read as commands, so a commit message or PR body that mentions `git push origin HEAD:main` is fine. Beyond the rules above it also refuses:
 
@@ -114,7 +114,7 @@ It cannot see everything, so the rules still bind you wherever it stays silent:
 
 - a branch name or directory that comes from command substitution, or from a variable it did not see set — it lets those through rather than guess
 - git run inside a script, or anywhere other than the Bash tool
-- agent platforms that do not run Claude Code plugin hooks
+- agent platforms that do not run Claude Code plugin hooks, and Codex before the hook is trusted, or after any change to the plugin's files (an upgrade or any other edit), until it is trusted again. Codex skips it then without saying so
 
 If the hook cannot run at all (no `python3`, or an internal error) it allows the command, so it never blocks unrelated work.
 
