@@ -145,6 +145,8 @@ So build the block yourself:
 
 ## 5. Call `/codereview:fix`
 
+Before the first call this cycle, write down where the branch is: `git rev-parse HEAD`. Step 7 compares against it to decide whether to push, so do not write it down again when you re-run `/codereview:fix` after a base merge below.
+
 Give it the block. It sends back one answer per finding:
 
 | Answer | What it means | What you do |
@@ -167,7 +169,7 @@ git merge --no-edit 'refs/codereview/pr-<n>-base'
 
 `<source>` is `origin` when the base repository is `origin`'s, and otherwise the fetch URL you wrote down there. For a PR from a fork, never merge `origin/<baseRefName>`, even if `/codereview:fix`'s ERROR names it: that is the fork's own branch of the same name, which can be stale or unrelated to the base. The fetch only reads. Step 7 still pushes to `origin` and nowhere else.
 
-Do not work around it by re-running `/codereview:fix` unchanged. A stale branch is exactly what makes a subagent judge a finding against superseded code and "correct" something that was already right. If the fetch prints an ERROR, stop and pass it on without merging: `refs/codereview/pr-<n>-base` still holds the last copy fetched, so merging it would bring the branch up to a stale base. If the merge conflicts, stop and hand it to a person — resolving a base merge is not this loop's job. Say in your report that you updated the branch; it changes the PR.
+Do not work around it by re-running `/codereview:fix` unchanged. A stale branch is exactly what makes a subagent judge a finding against superseded code and "correct" something that was already right. If the fetch prints an ERROR, stop and pass it on without merging: `refs/codereview/pr-<n>-base` still holds the last copy fetched, so merging it would bring the branch up to a stale base. If the merge conflicts, stop and hand it to a person — resolving a base merge is not this loop's job. Say in your report that you updated the branch; it changes the PR. Step 7 pushes the merge even if no finding ends up `fixed`.
 
 For a `no-thread` answer, find the thread by matching the finding's first sentence against the thread's first comment, then post and resolve:
 
@@ -204,7 +206,7 @@ If that does not print the `headRefName` you wrote down in *Before you start*, S
 git push origin -- 'refs/heads/<headRefName>'
 ```
 
-A normal push, nothing else. If `/codereview:fix` fixed nothing this cycle there is nothing to push, so skip it.
+A normal push, nothing else. Push only when `git rev-parse HEAD` no longer prints the commit you wrote down at the start of step 5. If it still does, neither a fix nor a base merge landed this cycle, so there is nothing to push: skip it. Do not decide from the `fixed` count. A base merge followed by findings that were all answered rather than fixed moves `HEAD` with nothing `fixed`, and leaving that merge unpushed keeps the PR behind its base while step 1 waits for a review of a commit GitHub never received.
 
 Then say where you are in one line — `cycle 3 — 4 fixed, 1 answered, pushed` — and go back to step 1.
 
