@@ -158,13 +158,13 @@ Give it the block. It sends back one answer per finding:
 **The behind-the-base ERROR is yours to clear, and you must clear it before re-entering.** You own this branch, so bring it current, run the project's checks, then re-run `/codereview:fix`. Use the `baseRefName` you checked in *Before you start*, never one re-read from the PR. Fetch it from the base repository found in *Before you start* step 6 into a ref of its own, then merge that ref:
 
 ```bash
-git fetch --quiet --no-tags '<source>' '+refs/heads/<baseRefName>:refs/codereview/pr-<n>-base'
+git fetch --quiet --no-tags '<source>' '+refs/heads/<baseRefName>:refs/codereview/pr-<n>-base' || { echo 'ERROR: git fetch of <baseRefName> from <source> failed' >&2; exit 1; }
 git merge --no-edit 'refs/codereview/pr-<n>-base'
 ```
 
 `<source>` is `origin` when the base repository is `origin`'s, and otherwise the fetch URL you wrote down there. For a PR from a fork, never merge `origin/<baseRefName>`, even if `/codereview:fix`'s ERROR names it: that is the fork's own branch of the same name, which can be stale or unrelated to the base. The fetch only reads. Step 7 still pushes to `origin` and nowhere else.
 
-Do not work around it by re-running `/codereview:fix` unchanged. A stale branch is exactly what makes a subagent judge a finding against superseded code and "correct" something that was already right. If the merge conflicts, stop and hand it to a person — resolving a base merge is not this loop's job. Say in your report that you updated the branch; it changes the PR.
+Do not work around it by re-running `/codereview:fix` unchanged. A stale branch is exactly what makes a subagent judge a finding against superseded code and "correct" something that was already right. If the fetch prints an ERROR, stop and pass it on without merging: `refs/codereview/pr-<n>-base` still holds the last copy fetched, so merging it would bring the branch up to a stale base. If the merge conflicts, stop and hand it to a person — resolving a base merge is not this loop's job. Say in your report that you updated the branch; it changes the PR.
 
 For a `no-thread` answer, find the thread by matching the finding's first sentence against the thread's first comment, then post and resolve:
 
