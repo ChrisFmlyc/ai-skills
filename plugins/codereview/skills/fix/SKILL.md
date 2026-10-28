@@ -347,7 +347,7 @@ esac
 
 It changed nothing; its fix reaches past the files the review named. A packet with no files always comes back this way when the finding needs a fix.
 
-Add `extra_files` to that packet and send it out again in a later wave, once no packet still in flight shares any of its files, old or new. Run each extra file through the path check in *Before you start* first, then check it with `test -e <path>`: put the ones that exist on the packet's `File(s):` line, and the ones that do not on a `New file(s):` line, so the subagent's first check in Path A lets it create them instead of answering `missing-files`. If one of the extra files fails the path check, or is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
+Add `extra_files` to that packet and send it out again in a later wave, once no packet still in flight shares any of its files, old or new. Run each extra file through the path check in *Before you start* first, then check it with `test -e '<path>'`, pasting the path between the single quotes as that check does: put the ones that exist on the packet's `File(s):` line, and the ones that do not on a `New file(s):` line, so the subagent's first check in Path A lets it create them instead of answering `missing-files`. If one of the extra files fails the path check, or is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
 
 A packet may ask once. If it comes back as `needs-files` a second time, raise an ERROR naming the finding and the files it asked for. A fix that keeps growing needs a person.
 
