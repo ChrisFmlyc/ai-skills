@@ -202,9 +202,10 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
      REF="refs/codereview/pr-$N-base"
      git fetch --quiet --no-tags "$SRC" "+refs/heads/$BASE:$REF" || { echo "ERROR: git fetch of $BASE from $SRC failed" >&2; exit 1; }
    else
-     # no PR: fall back to origin's default branch
+     # no PR: fall back to origin's default branch, asked of origin itself. The local
+     # refs/remotes/origin/HEAD is set at clone time and no fetch moves it, so after a rename it names a dead branch
      git fetch origin --quiet || { echo 'ERROR: git fetch origin failed' >&2; exit 1; }
-     BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+     BASE=$(git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" && $3 == "HEAD" && sub("^refs/heads/", "", $2) { print $2 }')
      [ -n "$BASE" ] || BASE=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null)
      [ -n "$BASE" ] || { echo 'ERROR: no base branch found' >&2; exit 1; }
      REF="origin/$BASE"
