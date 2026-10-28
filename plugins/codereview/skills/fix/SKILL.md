@@ -140,12 +140,17 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
      # walk up from the path to the root: no part of it may be a symlink
      *) Q=$P
         until [ -L "$ROOT/$Q" ] || [ "$Q" = "${Q%/*}" ]; do Q=${Q%/*}; done
-        if [ -L "$ROOT/$Q" ]; then echo "unsafe: $Q is a symlink"; else echo ok; fi ;;
+        if [ -L "$ROOT/$Q" ]; then echo "unsafe: $Q is a symlink"
+        # a path that exists must be a file, not a directory
+        elif [ -e "$ROOT/$P" ] && [ ! -f "$ROOT/$P" ]; then echo "unsafe: $P is not a file"
+        else echo ok; fi ;;
    esac
    ```
 
    Anything but `ok` fails, even a symlink that points back inside the repo:
-   the edit would land on a file the packet does not name. Treat a failing path
+   the edit would land on a file the packet does not name. A directory fails
+   too: the dirty list names files, so it never matches one, and committing a
+   directory commits every changed file under it. Treat a failing path
    like one on the dirty list: STOP before dispatching and raise an ERROR
    naming it. Paths a packet gains later go through the same check.
 
