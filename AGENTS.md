@@ -136,14 +136,16 @@ Install procedure: same as Claude Code (clone + symlink into `~/.claude/skills/`
 
 ### Codex (OpenAI CLI)
 
-Codex has no `~/.codex/skills/` directory and no plugin marketplace as of early 2026. To use a skill from this repo with Codex:
+Codex reads this repo's `.claude-plugin/marketplace.json`, so it installs from the same marketplace:
 
-1. Clone the repo: `git clone git@github.com:ChrisFmlyc/ai-skills.git`.
-2. Reference the desired `SKILL.md` from the project's `AGENTS.md`. Either:
-   - Add an `@include` / link pointing at the SKILL.md path, or
-   - Inline the skill's instruction body into `AGENTS.md` under a clear heading.
+```
+codex plugin marketplace add ChrisFmlyc/ai-skills
+codex plugin add <plugin>@ai-skills
+```
 
-This is a lossy port — Codex does not have the same triggering / auto-invocation semantics as Claude Code. The skill becomes part of the always-on instructions, not an on-demand capability. Flag this to the human before doing it.
+Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or air-gapped machine, clone the repo and pass its path instead: `codex plugin marketplace add ~/code/ai-skills`.
+
+**A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. After installing `repo`, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. An upgrade that changes the plugin's files marks the hook modified, and it stops running until it is trusted again, so ask again after every upgrade. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
 
 ### Cursor
 
