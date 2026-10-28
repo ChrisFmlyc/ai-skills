@@ -1,2 +1,0 @@
-# Claude Code worktree isolation — keep subagent worktrees out of the repo
-.claude/worktrees/
