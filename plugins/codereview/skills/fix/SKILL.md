@@ -333,11 +333,13 @@ Use the same flag as in *Before you start*, so every file a subagent created sho
 Then, for each work packet a subagent reported as `fixed`:
 
 ```bash
-git add -- <new path>   # only for a file the fix created (?? in the status)
-git commit --only <path> [<path>…] -m "fix(review): <what the subagent did> [F<number>]"
+git --literal-pathspecs add -- <new path>   # only for a file the fix created (?? in the status)
+git --literal-pathspecs commit --only <path> [<path>…] -m "fix(review): <what the subagent did> [F<number>]"
 ```
 
 `git commit --only` takes only paths git already tracks, so a file the fix created has to be added by name first. Never `git add -A`, never `git add .`, and never stage a file no subagent reported changing. Record `git rev-parse HEAD` against the finding.
+
+Keep `--literal-pathspecs` on both commands. Without it git reads `*`, `?`, `[` and a leading `:` in a path as patterns, so committing a file named `a*.md` also commits a changed `ab.md` beside it, and the commit picks up another finding's edit.
 
 Because every subagent worked in the same checkout against the same content, there are no cherry-picks and no conflicts to resolve — the ordering problem that made them necessary is gone. What replaces it is the wave discipline in § Dispatch: if two findings share a file, they were never in flight together, and the first was committed before the second started.
 
