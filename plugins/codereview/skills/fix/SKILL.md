@@ -146,23 +146,24 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
         if [ -L "$ROOT/$Q" ]; then echo "unsafe: $Q is a symlink"
         # a path that exists must be a file, not a directory
         elif [ -e "$ROOT/$P" ] && [ ! -f "$ROOT/$P" ]; then echo "unsafe: $P is not a file"
-        # nor one git ignores. 1 is not ignored, 0 is, anything else is a failed check;
-        # the ./ stops a leading : being read as pathspec magic
-        elif [ -e "$ROOT/$P" ]; then git -C "$ROOT" check-ignore -q -- "./$P"
+        # and no path, there yet or not, may be one git ignores. 1 is not ignored, 0 is,
+        # anything else is a failed check; the ./ stops a leading : being read as pathspec magic
+        else git -C "$ROOT" check-ignore -q -- "./$P"
           case $? in 1) echo ok ;; 0) echo "unsafe: $P is ignored by git" ;; *) echo "unsafe: cannot check $P" ;; esac
-        else echo ok; fi ;;
+        fi ;;
    esac
    ```
 
    Anything but `ok` fails, even a symlink that points back inside the repo:
    the edit would land on a file the packet does not name. A directory fails
    too: the dirty list names files, so it never matches one, and committing a
-   directory commits every changed file under it. So does a file git ignores.
-   `git status` never lists it, so an edit to it is invisible when the edits
-   are collected, and git holds no copy of what it replaced. It can still run:
-   a pre-commit hook that calls a tool under `node_modules/` runs the edited
-   copy on the next `git commit`. Leave `--literal-pathspecs` off this one
-   command: `check-ignore` refuses it and fails every path. Treat a failing path
+   directory commits every changed file under it. So does a file git ignores,
+   including a new file under an ignored directory. `git status` never lists
+   it, so an edit to it is invisible when the edits are collected, and git
+   holds no copy of what it replaced. It can still run: a pre-commit hook that
+   calls a tool under `node_modules/` runs the edited copy on the next
+   `git commit`. Leave `--literal-pathspecs` off this one command:
+   `check-ignore` refuses it and fails every path. Treat a failing path
    like one on the dirty list: STOP before dispatching and raise an ERROR
    naming it. Paths a packet gains later go through the same check.
 
