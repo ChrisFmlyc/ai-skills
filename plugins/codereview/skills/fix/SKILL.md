@@ -244,7 +244,7 @@ A subagent starts with a blank slate. It cannot read this skill, so it knows onl
 
 ### Path A — fix it (preferred)
 
-> **First, check you are in the right place.** Every file listed in your work packet must exist. If any of them does not, change nothing and return `{ outcome: "missing-files", index, missing_files }` — do not go looking for those files somewhere else, and do not invent a substitute.
+> **First, check you are in the right place.** Every file listed in your work packet must exist, except any listed under `New file(s):` — those are files your fix is to create, so they need not exist yet. If any other file does not exist, change nothing and return `{ outcome: "missing-files", index, missing_files }` — do not go looking for those files somewhere else, and do not invent a substitute.
 >
 > Then check the finding against the code as it is now; review bots work from an old snapshot and are often already stale. If the issue is real, fix it.
 >
@@ -297,7 +297,7 @@ Re-check the repo root and the path you parsed. If the path is genuinely absent 
 
 It changed nothing; its fix reaches past the files the review named. A packet with no files always comes back this way when the finding needs a fix.
 
-Add `extra_files` to that packet and send it out again in a later wave, once no packet still in flight shares any of its files, old or new. If one of the new files is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
+Add `extra_files` to that packet and send it out again in a later wave, once no packet still in flight shares any of its files, old or new. Check each extra file with `test -e <path>`: put the ones that exist on the packet's `File(s):` line, and the ones that do not on a `New file(s):` line, so the subagent's first check in Path A lets it create them instead of answering `missing-files`. If one of the extra files is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
 
 A packet may ask once. If it comes back as `needs-files` a second time, raise an ERROR naming the finding and the files it asked for. A fix that keeps growing needs a person.
 
