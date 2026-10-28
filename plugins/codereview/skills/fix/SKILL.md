@@ -390,7 +390,7 @@ First, confirm nothing unexpected changed:
 git status --porcelain --untracked-files=all
 ```
 
-Use the same flag as in *Before you start*, so every file a subagent created shows up under its own path and not folded into its directory. Every path listed must belong to a work packet in this wave, or have been dirty before you started (note those at the outset so you can tell the difference). If a path appears that no subagent claimed, STOP and surface it — do not commit it.
+Use the same flag as in *Before you start*, so every file a subagent created shows up under its own path and not folded into its directory. Every path listed must have been dirty before you started (note those at the outset so you can tell the difference), or be in the `files` of a `fixed` report whose own packet lists it under `File(s):` or `New file(s):`. Packets in one wave share no file, so only one packet may claim each path. If a path appears that no subagent claimed, or a subagent claims a path its own packet does not list, STOP and surface it — do not commit it.
 
 Then, for each work packet a subagent reported as `fixed`:
 
