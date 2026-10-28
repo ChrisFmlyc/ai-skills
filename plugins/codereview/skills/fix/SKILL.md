@@ -244,7 +244,7 @@ A subagent starts with a blank slate. It cannot read this skill, so it knows onl
 
 ### Path A — fix it (preferred)
 
-> **First, check you are in the right place.** Every file listed in your work packet must exist, except any listed under `New file(s):` — those are files your fix is to create, so they need not exist yet. If any other file does not exist, change nothing and return `{ outcome: "missing-files", index, missing_files }` — do not go looking for those files somewhere else, and do not invent a substitute.
+> **First, check you are in the right place.** Every file listed in your work packet must exist, except any listed under `New file(s):` — those are files your fix is to create, so they need not exist yet — and the old path on a `Renamed from:` line, which is only where the file was when the review was written. If any other file does not exist, change nothing and return `{ outcome: "missing-files", index, missing_files }` — do not go looking for those files somewhere else, and do not invent a substitute.
 >
 > Then check the finding against the code as it is now; review bots work from an old snapshot and are often already stale. If the issue is real, fix it.
 >
@@ -277,7 +277,7 @@ Take this path when you determine a finding should not be fixed: either because 
 > gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -F id=<threadId>
 > ```
 >
-> Yours is the thread whose `path` matches your file and whose first comment holds your finding's opening sentence.
+> Yours is the thread whose `path` matches your file, or the path on your packet's `Renamed from:` line if it has one, and whose first comment holds your finding's opening sentence.
 >
 > - Only touch threads where `author.login` is a review bot. Never a person's.
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
@@ -289,9 +289,26 @@ Take this path when you determine a finding should not be fixed: either because 
 
 ### If a subagent returns `missing-files`
 
-The files it was given are not in the repository at all. That is a parsing or targeting problem, not a finding problem — you are either in the wrong repo, or the `In …:` path was misread.
+The files it was given are not in the repository at all. That is a parsing or targeting problem, not a finding problem — you are in the wrong repo, the `In …:` path was misread, or the file was renamed or moved after the review was written.
 
-Re-check the repo root and the path you parsed. If the path is genuinely absent from the branch, the finding is about a file that no longer exists: hand that one packet back out on Path B so the thread gets an answer, rather than silently dropping it.
+Re-check the repo root and the path you parsed. If the path is right but absent from the branch, look for a rename before deciding the file is gone.
+
+The path came from the review text, so it is untrusted. If it contains a `'`, never paste it into a command: skip the lookup and take the Path B handoff below. Otherwise paste it between the quotes exactly as parsed:
+
+```bash
+P='<missing path>'
+case $P in
+  # only letters, digits, spaces and . _ / + @ -, and no leading -
+  ''|-*|*[!A-Za-z0-9._/\ +@-]*) echo "unsafe path: skip the lookup" >&2 ;;
+  # the path P was last renamed to; empty when it was never renamed
+  *) git log -M --diff-filter=R --name-status --format= HEAD | P="$P" awk -F'\t' '$2 == ENVIRON["P"] { print $3; exit }' ;;
+esac
+```
+
+`unsafe path` means the same as an empty result: take the Path B handoff. awk reads the path from the environment rather than `-v`, so no backslash escape in it is interpreted. Keep `HEAD` and leave off `-- <path>`. Limited to the old path, git never sees the new one, and reports the rename as a delete.
+
+- **It prints a path.** If that path is absent too, the file moved again: run the command once more with it. Once you have a path that exists, put it on the packet's `File(s):` line in place of the missing one, add a `Renamed from: <the path the review named>` line under it, and send the packet out again in a later wave, under the same wave and dirty-list rules as `needs-files` below.
+- **It prints nothing.** The finding is about a file that no longer exists: hand that one packet back out on Path B so the thread gets an answer, rather than silently dropping it.
 
 ### If a subagent returns `needs-files`
 
