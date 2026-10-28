@@ -157,7 +157,7 @@ Give it the block. It sends back one answer per finding:
 
 `/codereview:fix` raises an ERROR rather than answers when it cannot finish safely: among others, when the branch is behind its base, when a finding's file already had uncommitted changes in the checkout, or when the branch fails its own checks once every fix is in. Every ERROR stops the cycle. Pass it on and do not push.
 
-**The behind-the-base ERROR is yours to clear, and you must clear it before re-entering.** You own this branch, so bring it current, run the project's checks, then re-run `/codereview:fix`. Use the `baseRefName` you checked in *Before you start*, never one re-read from the PR. Fetch it from the base repository found in *Before you start* step 6 into a ref of its own, then merge that ref:
+**The behind-the-base ERROR is yours to clear, and you must clear it before re-entering.** You own this branch, so bring it current, run the project's checks, then re-run `/codereview:fix`. Use the `baseRefName` you checked in *Before you start*, never one re-read from the PR. Re-read it only to check the PR still merges into it: run `gh pr view <n> --json baseRefName,url`, and if its `baseRefName`, or the `owner/name` in its `url` (ignoring case), is not the one you wrote down, STOP and raise an ERROR naming both — a person retargeted the PR, and merging the old base would push that branch's commits into a PR that no longer merges into it. Restarting the loop picks up the new base. Otherwise fetch the `baseRefName` you wrote down from the base repository found in *Before you start* step 6 into a ref of its own, then merge that ref:
 
 ```bash
 SRC='<source>'
