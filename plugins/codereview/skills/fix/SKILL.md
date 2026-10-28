@@ -366,13 +366,16 @@ Use the same flag as in *Before you start*, so every file a subagent created sho
 Then, for each work packet a subagent reported as `fixed`:
 
 ```bash
-git --literal-pathspecs add -- '<new path>'   # only for a file the fix created (?? in the status)
-git --literal-pathspecs commit --only -F - -- '<path>' ['<path>'…] <<'MSG'
+git --literal-pathspecs add -- '<new path>' &&   # only for a file the fix created (?? in the status)
+git --literal-pathspecs commit --only -F - -- '<path>' ['<path>'…] <<'MSG' &&
 fix(review): <what the subagent did> [F<number>]
 MSG
+git rev-parse HEAD
 ```
 
-`git commit --only` takes only paths git already tracks, so a file the fix created has to be added by name first. Never `git add -A`, never `git add .`, and never stage a file no subagent reported changing. Record `git rev-parse HEAD` against the finding.
+`git commit --only` takes only paths git already tracks, so a file the fix created has to be added by name first. Never `git add -A`, never `git add .`, and never stage a file no subagent reported changing. Record the hash `git rev-parse HEAD` prints against the finding.
+
+If either `git add` or `git commit` fails (a pre-commit hook, or a hook refusing the command), STOP and raise an ERROR with its output: do not report that finding as `fixed`, commit nothing more, and start no further wave. Its edit stays in the checkout, and a file it added stays staged, for a person to look at.
 
 Keep the `--` and the single quotes. Without `--`, git reads a path that starts with `-` as an option: a file named `-n` turns into `--no-verify`, so the hooks are skipped and that file is left out of the commit. Without the quotes, a path with a space splits into two. The path check in *Before you start* already rejects a path containing a `'`, so the quotes cannot be broken. The message is written from a subagent's summary, so it goes in through the quoted heredoc, which takes `$(…)`, backticks and quotes literally. Keep it to one line so no line of it can read `MSG`.
 
