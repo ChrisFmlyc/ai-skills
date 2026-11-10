@@ -1,13 +1,17 @@
 # codereview — personal CodeRabbit helpers
 
-Two skills for working code review findings on a Pull Request (PR):
+Two skills for working code review findings on a GitHub Pull Request (PR) or a GitLab merge request (MR):
 
-- `/codereview:fix` — give it a block of findings from CodeRabbit, Greptile, or any other coding agent. It splits the block into separate findings, runs one subagent per finding, and each finding ends up either fixed in code and committed, or answered on GitHub with a comment and the thread closed. It never pushes.
+- `/codereview:fix` — give it a block of findings from CodeRabbit, Greptile, or any other coding agent. It splits the block into separate findings, runs one subagent per finding, and each finding ends up either fixed in code and committed, or answered on GitHub or GitLab with a comment and the thread closed. It never pushes.
 - `/codereview:loop` — the hands-off wrapper. It waits for the coding agent's review, collects the open findings, hands them to `/codereview:fix`, closes out any thread the agent left open, pushes, and cycles until the PR has no open findings left. It does no fixing itself.
 
 `/codereview:fix` can be invoked by you, by an agent, or by `/codereview:loop`. It does not go looking for findings — something hands it the text.
 
 `/codereview:loop` pushes and posts on your behalf, so it starts only two ways: you type `/codereview:loop`, or a driving skill **you** invoked delegates to it as one of its steps (`/spades:loop` Stage 7 is the reference case — your invocation of the driver is what carries the authorization down). It never fires on its own initiative just because a PR happens to have review comments on it.
+
+## GitHub and GitLab
+
+Both skills work the same way on either host. GitHub goes through `gh`; GitLab goes through `glab`, where review threads are MR discussions and every API call names the MR's host, target project and number. A link with `/-/merge_requests/` in it, or an `origin` whose host contains `gitlab`, selects GitLab; pass the MR link for a GitLab instance on any other host. GitLab nests projects in groups, so the checks that `origin` is the MR's project compare the whole path after the host, not just the last `owner/name`.
 
 ## Why there is no worktree isolation
 
