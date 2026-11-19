@@ -65,7 +65,7 @@ gh api --paginate "repos/{owner}/{repo}/pulls/<n>/reviews" \
   --jq '.[] | select(.user.type == "Bot") | [.user.login, .commit_id] | @tsv'
 ```
 
-A bot reviews only commits GitHub has. If the first two commands print different commits, your latest commit is not on the PR yet, as with a commit made before the loop started. Check the branch and push it with the command in step 7, then run all three again. If git refuses the push, STOP and raise an ERROR saying the push to `<headRefName>` was refused.
+A bot reviews only commits GitHub has. If the first two commands print different commits, your latest commit is not on the PR yet, as with a commit made before the loop started. Check the branch and push it with the command in step 7, then run all three again. If git refuses the push, as it does when someone else has pushed to the branch, STOP and raise an ERROR saying the push to `<headRefName>` was refused.
 
 Each review line holds a bot's login and the commit that review covers. A review counts for your latest commit only when its `commit_id` is that commit: a review of an earlier push can arrive after you made it. Go by `user.type`, never by a login you expect: the bots on a PR vary by repo.
 
@@ -74,7 +74,7 @@ The bots to wait for are the logins this prints. A bot that has never reviewed t
 Compare each bot's reviews with your latest commit:
 
 - **Every bot has a review whose `commit_id` is your latest commit.** They have all reviewed your latest push. Go to step 2.
-- **Any bot has no review of that commit, or the query printed nothing.** A review is still on its way. Say `waiting for review on PR #n` and name the bots still pending, wait 60 to 90 seconds, then run the query again.
+- **Any bot has no review of that commit, or the query printed nothing.** A review is still on its way. Say `waiting for review on PR #n` and name the bots still pending, wait 60 to 90 seconds, then run all three commands again. Someone else can push to the PR while you wait, so check the PR head every time, not only the reviews.
 - **One bot is still pending 30 minutes after the others have all reviewed the commit.** It may have skipped this push. Raise a WARNING naming it — `<login> has not reviewed <commit> after 30 minutes; continuing without it` — and go to step 2.
 - **The query has printed nothing for 30 minutes.** No review bot has reviewed this PR, so there is no review to wait for and no finding to fix. STOP and raise an ERROR — `no review bot has reviewed PR #n after 30 minutes` — so a person can check that a review bot is installed on the repo.
 
