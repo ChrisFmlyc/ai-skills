@@ -71,12 +71,12 @@ Each review line holds a bot's login and the commit that review covers. A review
 
 The bots to wait for are the logins this prints. A bot that has never reviewed this PR is not on the list, so a reviewer that is not installed on the repo cannot hold the loop up.
 
-Compare each bot's reviews with your latest commit:
+The wait for a commit has one deadline: 30 minutes from when the commit reached the PR, or from when you began polling, if that is later. Each time you run the three commands, take the first of these that holds:
 
-- **Every bot has a review whose `commit_id` is your latest commit.** They have all reviewed your latest push. Go to step 2.
-- **Any bot has no review of that commit, or the query printed nothing.** A review is still on its way. Say `waiting for review on PR #n` and name the bots still pending, wait 60 to 90 seconds, then run all three commands again. Someone else can push to the PR while you wait, so check the PR head every time, not only the reviews.
-- **One bot is still pending 30 minutes after the others have all reviewed the commit.** It may have skipped this push. Raise a WARNING naming it — `<login> has not reviewed <commit> after 30 minutes; continuing without it` — and go to step 2.
-- **The query has printed nothing for 30 minutes.** No review bot has reviewed this PR, so there is no review to wait for and no finding to fix. STOP and raise an ERROR — `no review bot has reviewed PR #n after 30 minutes` — so a person can check that a review bot is installed on the repo.
+- **At least one bot is listed, and every one has reviewed the commit.** Go to step 2.
+- **The deadline has not passed.** Say `waiting for review on PR #n` and name the bots still pending, wait 60 to 90 seconds, then run all three commands again. Someone else can push to the PR while you wait, so check the PR head every time, not only the reviews.
+- **At least one bot has reviewed the commit.** Raise a WARNING naming the rest — `<logins> have not reviewed <commit> after 30 minutes; continuing without them` — and go to step 2.
+- **No bot has reviewed the commit**, whether none is listed or they reviewed only earlier commits. STOP and raise an ERROR — `no review bot has reviewed <commit> on PR #n after 30 minutes` — so a person can check the repo's review bots.
 
 Reviews take a few minutes. Waiting here is the loop doing its job, not a reason to stop.
 
