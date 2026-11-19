@@ -3,7 +3,7 @@
 Two skills for working code review findings on a Pull Request (PR):
 
 - `/codereview:fix` — give it a block of findings from CodeRabbit, Greptile, or any other coding agent. It splits the block into separate findings, runs one subagent per finding, and each finding ends up either fixed in code and committed, or answered on GitHub with a comment and the thread closed. It never pushes.
-- `/codereview:loop` — the hands-off wrapper. It waits for the coding agent's review, collects the open findings, hands them to `/codereview:fix`, closes out any thread the agent left open, pushes, and cycles until the PR has no open findings left. It does no fixing itself.
+- `/codereview:loop` — the hands-off wrapper. It waits until every review bot on the PR has reviewed the latest push, collects the open findings, hands them to `/codereview:fix`, closes out any thread the agent left open, pushes, and cycles until the PR has no open findings left. It does no fixing itself.
 
 `/codereview:fix` can be invoked by you, by an agent, or by `/codereview:loop`. It does not go looking for findings — something hands it the text.
 

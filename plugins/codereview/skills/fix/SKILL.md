@@ -2,7 +2,7 @@
 name: fix
 description: Invoke when the user or an agent has code review findings to fix on a Pull Request (PR), from CodeRabbit, Greptile, or any other review bot. Parses the block into separate findings, gives each one its own subagent to either fix in code or comment and resolve on GitHub, then commits the fixes to the branch; it never pushes, the caller does that.
 metadata:
-  version: "0.5.0"
+  version: "0.5.1"
 ---
 
 # codereview:fix — one subagent per finding, all at once
@@ -355,7 +355,7 @@ Take this path when you determine a finding should not be fixed: either because 
 >
 > ```
 > # 1. find your thread
-> gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:1){nodes{databaseId body author{login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
+> gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:1){nodes{databaseId body author{__typename login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
 >
 > # 2. post your reason
 > gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>'
@@ -366,7 +366,7 @@ Take this path when you determine a finding should not be fixed: either because 
 >
 > Yours is the thread whose `path` matches your file, or the path on your packet's `Renamed from:` line if it has one, and whose first comment holds your finding's opening sentence.
 >
-> - Only touch threads where `author.login` is a review bot. Never a person's.
+> - Only touch threads whose first comment's `author.__typename` is `Bot`. Never a person's. GraphQL drops the `[bot]` suffix from a bot's login, so go by the type, not the name.
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
 > - Always comment before resolving.
 > - Start every comment you post with `(ai-skills:fix)`.
