@@ -57,7 +57,7 @@ bot.
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
 | `coderabbit` | Its `CodeRabbit` commit status on the head commit (query below) is `success`. `pending` ("Review queued", "Review in progress") is still working. A paused or skipped review ("Review paused", "Review skipped") is a STOP: report it, because only a person resumes it. With no `CodeRabbit` status on the head commit at all, use the `generic` rule. | Yes, on its next review. | None — it reviews every push. |
-| `greptile` | Its newest summary note names the head commit as the last one reviewed (the footer's last-reviewed commit; compare its short SHA with the start of `git rev-parse HEAD`). Without a summary note, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
+| `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule, with its re-trigger posted before silence can finish it; GitLab Duo's Code Review Flow also sets its reviewer state to `approved` (nothing found) or `requested_changes`. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
 
@@ -95,6 +95,33 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/repository/c
   | jq -sc '(if length == 0 then error("no response from glab") else add end)
             | [.[] | select(.name == "CodeRabbit") | {status, description}] | first'
 ```
+
+The `greptile` query, with the bot's pinned ID:
+
+<!-- snippet-test: greptile-summary-commit -->
+```bash
+set -o pipefail
+glab api --paginate --hostname <host> "projects/<target_project_id>/merge_requests/<iid>/notes" \
+  | jq -rs --argjson bot <id> '
+      (if length == 0 then error("no response from glab") else add end)
+      | [.[] | select(.author.id == $bot and (.system | not)
+                      and ((.body // "") | test("greptile summary|last reviewed commit"; "i")))]
+      | max_by(.id) // empty
+      | .body
+      | (capture("(?i)last reviewed commit[^\\n]*?/commit/(?<sha>[0-9a-f]{7,40})")
+         // capture("(?i)last reviewed commit[^\\n]*?\\b(?<sha>[0-9a-f]{7,40})\\b"))
+      | .sha | ascii_downcase'
+```
+
+It reads Greptile's summary note: the bot's newest note, by note ID, that
+mentions "Greptile Summary" or "Last reviewed commit". It prints the commit
+that note's footer gives as last reviewed, from the commit link on the "Last
+reviewed commit" line, or else the first hex word of 7 to 40 characters on
+that line. It prints nothing when the bot has no summary note or the footer
+names no commit. Greptile documents this footer, with "Reviews (N)" and the
+last reviewed commit, for its summaries; its exact wording on GitLab is
+unverified, so the match is loose and a footer it cannot read counts as no
+summary.
 
 The `generic` query, with the bot's pinned ID:
 
