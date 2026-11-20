@@ -1,15 +1,15 @@
 ---
 name: pr
-description: Invoke immediately before opening a Pull Request (PR), before running gh pr create. /repo:pr turns the drafted title and body into a conventional-commit title that works as the squash-merge commit and changelog line, and a body that says what changed and why, then runs both through /unslop; if /unslop is not installed it stops, tells the user how to install it, and resumes once it is. It never opens the PR, never pushes, never changes code, and never returns text that has not been through /unslop.
+description: Invoke immediately before opening a Pull Request (PR) or GitLab merge request (MR), before running gh pr create or glab mr create. /repo:pr turns the drafted title and body into a conventional-commit title that works as the squash-merge commit and changelog line, and a body that says what changed and why, then runs both through /unslop; if /unslop is not installed it stops, tells the user how to install it, and resumes once it is. It never opens the PR, never pushes, never changes code, and never returns text that has not been through /unslop.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # repo:pr — title and body for a squash-merged Pull Request (PR)
 
-An agent has finished a change and is about to open a PR. Before it runs `gh pr create`, it hands you the title and body it drafted. You rewrite them and hand them back. You never open the PR yourself.
+An agent has finished a change and is about to open a PR — on GitLab, a merge request (MR), which this skill treats the same way. Before it runs `gh pr create` or `glab mr create`, it hands you the title and body it drafted. You rewrite them and hand them back. You never open the PR yourself.
 
-This skill assumes PRs are squash-merged. The title then becomes the commit subject on the default branch, and changelogs and release notes are built from those subjects. GitHub appends ` (#<PR number>)` to it at merge. Write the title for someone skimming the changelog a year from now.
+This skill assumes PRs are squash-merged. The title then becomes the commit subject on the default branch, and changelogs and release notes are built from those subjects. GitHub appends ` (#<PR number>)` to it at merge; GitLab's default squash commit message is the MR title as written. Write the title for someone skimming the changelog a year from now.
 
 ## 1. Check that /unslop is available
 
@@ -54,7 +54,9 @@ Read the diff as well. You check every claim in the draft against it. Find the d
 
 ```bash
 git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
-  || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null
+  || git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "origin/", $2); print $2; found = 1; exit } END { exit !found }' \
+  || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null \
+  || glab repo view --output json 2>/dev/null | jq -r '.default_branch // empty | "origin/" + .' 2>/dev/null
 ```
 
 Call what it prints `BASE`, for example `origin/main`, and read the diff with `git diff BASE...HEAD`. If it prints nothing, do not run the diff. Tell the calling agent the default branch could not be found, and ask which branch the PR merges into. Use `origin/<that branch>` as `BASE`.
@@ -64,7 +66,7 @@ Call what it prints `BASE`, for example `origin/main`, and read the diff with `g
 Some repos set their own PR title rules. Look for them before you use the defaults below:
 
 - a commitlint config (`commitlint.config.*`, `.commitlintrc*`), or a workflow that checks PR titles, usually `amannn/action-semantic-pull-request`
-- `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md`
+- `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md` or an MR template under `.gitlab/merge_request_templates/`
 - recent commit subjects on the default branch: `git log --format=%s -30 BASE`
 
 Where the repo sets a rule, such as its own type list, required scopes, or a template with sections, follow the repo. The git log shows which scopes are in use and how they are spelled. Anything the repo leaves open comes from the rules below.
@@ -140,7 +142,7 @@ The reviewer is about to read the diff and wants to know what to look for.
 
 **Tell the reviewer where to look.** When the PR touches many files, name the two or three worth reading closely, and the order to read them in if order matters. If you want a particular kind of feedback, ask for it.
 
-**Link what the reader would otherwise hunt for.** Put `Fixes #42` or `Closes #42` on its own line, and GitHub closes the issue when the PR merges. A design doc or an earlier PR gets one line each, not a section.
+**Link what the reader would otherwise hunt for.** Put `Fixes #42` or `Closes #42` on its own line, and GitHub closes the issue when the PR merges; GitLab does the same when the MR merges into the default branch. A design doc or an earlier PR gets one line each, not a section.
 
 Strip all of this:
 
@@ -181,7 +183,7 @@ Then stop. The calling agent opens the PR with your text.
 
 ## Never do this
 
-- run `gh pr create`, `gh pr edit`, or any other command that writes to GitHub
+- run `gh pr create`, `gh pr edit`, `glab mr create`, `glab mr update`, or any other command that writes to GitHub or GitLab
 - push, commit, or change any file in the repo
 - run the `/unslop` install command; the user does that
 - hand back a title or body that has not been through `/unslop`

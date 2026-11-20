@@ -13,6 +13,27 @@ Two skills for working code review findings on a GitHub Pull Request (PR) or a G
 
 Both skills work the same way on either host. GitHub goes through `gh`; GitLab goes through `glab`, where review threads are MR discussions and every API call names the MR's host, target project and number. A link with `/-/merge_requests/` in it, or an `origin` whose host contains `gitlab`, selects GitLab; pass the MR link for a GitLab instance on any other host. GitLab nests projects in groups, so the checks that `origin` is the MR's project compare the whole path after the host, not just the last `owner/name`.
 
+GitLab marks no account as a review bot — CodeRabbit, Greptile and others post as whatever account their installer set up — so on GitLab the loop touches only the accounts you list. Pass them with the MR link, or keep them in `.codereview.yml` at the repository root:
+
+```
+/codereview:loop https://gitlab.example.com/acme/app/-/merge_requests/7 --bots acme-coderabbit:coderabbit,GitLabDuo:duo
+```
+
+```yaml
+gitlab:
+  review_bots:
+    - username: acme-coderabbit
+      kind: coderabbit   # coderabbit | greptile | duo | generic
+```
+
+Each kind has an adapter for how the loop knows that bot has finished reviewing the latest push: CodeRabbit's commit status, Greptile's summary naming the head commit, or, for GitLab Duo and anything else, its newest note settling. Every other author is a person, and their threads are left alone. The loop never sends a bot a command that pauses, resolves, approves or writes code. [`skills/loop/reference/gitlab-bots.md`](skills/loop/reference/gitlab-bots.md) has the details. A draft MR stops the loop, because the bots skip drafts.
+
+A push the remote rejects — a GitLab push rule, a lapsed SAML SSO session, a protected branch, GitHub push protection — stops the loop with the remote's message; the branch is never rewritten to get past it.
+
+## Tests
+
+`tests/snippets.sh` runs every shell snippet the skills tag `<!-- snippet-test: <name> -->` against recorded `gh`, `glab` and `git` output in `tests/fixtures/`, offline: the review-time and thread queries, the bot lookup and CodeRabbit status, and both hosts' freshness checks, including forks, missing MRs, auth failures and an unencrypted remote. It needs `bash` and `jq`.
+
 ## Why there is no worktree isolation
 
 `/codereview:fix` used to give each subagent its own git worktree so their edits could not collide. That was removed in 1.3.0, because a worktree is cut from the repository's **default branch**, not from the branch you are reviewing. On a PR that is the worst possible base: files the branch added are missing entirely, and files it changed appear in their pre-change form — so a subagent either cannot find its file, or quietly reviews the finding against the one version of the code the finding is definitely not about. Both look like a confident answer.

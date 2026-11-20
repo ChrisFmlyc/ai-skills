@@ -1,0 +1,1 @@
+^glab api (--paginate )?--hostname gitlab\.example\.com projects/42/repository/commits/head111/statuses$	statuses.json

@@ -1,0 +1,2 @@
+^glab mr view --output json$	mr.json
+^git remote get-url --push origin$	url.txt

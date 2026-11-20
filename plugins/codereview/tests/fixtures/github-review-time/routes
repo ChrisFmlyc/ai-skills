@@ -1,0 +1,2 @@
+^git show -s --format=%ct HEAD$	head.txt
+^gh api repos/\{owner\}/\{repo\}/pulls/12/reviews 	reviews.json

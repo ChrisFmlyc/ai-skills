@@ -1,0 +1,4 @@
+^glab mr view --output json$	mr.json
+^git remote get-url --push origin$	push-url.txt
+^git fetch --quiet --no-tags git@gitlab\.example\.com:acme/sub/app\.git \+refs/heads/main:refs/codereview/pr-7-base$	empty.txt
+^git rev-list --count HEAD\.\.refs/codereview/pr-7-base$	count.txt

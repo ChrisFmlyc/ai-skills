@@ -2,12 +2,12 @@
 name: sync
 description: Invoke after a Pull Request (PR) merges, or when a skill that owns a post-merge step hands off to it. /repo:sync switches to the default branch (main/master), fetches with prune, fast-forwards to origin, deletes the just-merged local feature branch, and reports "Ready." so the next branch starts fully in sync; it aborts on a dirty working tree or a detached HEAD rather than discarding anything, and it never pushes.
 metadata:
-  version: "0.3.1"
+  version: "0.4.0"
 ---
 
 # repo:sync — post-merge branch reset
 
-The user has just had a PR squash-merged into the default branch on GitHub and the remote feature branch was deleted. This skill brings the local checkout into the same state and leaves a clear-context handoff for the next prompt.
+The user has just had a PR squash-merged into the default branch on GitHub, or a merge request (MR) on GitLab, and the remote feature branch was deleted. This skill brings the local checkout into the same state and leaves a clear-context handoff for the next prompt.
 
 ## Who may invoke this
 
@@ -77,7 +77,7 @@ Save the feature branch name as `FEATURE_BRANCH`.
 git fetch origin --prune
 ```
 
-The `--prune` is load-bearing: after a squash-merge + GitHub branch deletion, this removes the stale remote-tracking ref. The branch's upstream then shows as `[gone]`, which is the signal that the PR was merged.
+The `--prune` is load-bearing: after a squash-merge and the host deleting the branch (GitHub, or GitLab when the MR was set to delete it), this removes the stale remote-tracking ref. The branch's upstream then shows as `[gone]`, which is the signal that the PR was merged.
 
 Detect upstream state:
 
@@ -116,7 +116,7 @@ If the count is conspicuously larger than the PR contained (you have local-only 
 
 ### 4b. Upstream still exists
 
-The PR likely isn't merged yet. Don't delete the local branch. Still bring the default branch up to date:
+The PR likely isn't merged yet. On GitLab a merged MR can land here too: its source branch stays on origin unless the MR was set to delete it. Either way, don't delete the local branch. Still bring the default branch up to date:
 
 ```bash
 git checkout "$DEFAULT_BRANCH"

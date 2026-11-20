@@ -1,0 +1,5 @@
+^glab mr view --output json$	nomr.txt	1
+^git remote get-url origin$	url.txt
+^git ls-remote --symref origin HEAD$	heads.txt
+^git fetch --quiet --no-tags origin \+refs/heads/main:refs/remotes/origin/main$	empty.txt
+^git rev-list --count HEAD\.\.origin/main$	count.txt

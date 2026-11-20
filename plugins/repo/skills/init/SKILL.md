@@ -1,8 +1,8 @@
 ---
 name: init
-description: Invoke when the current directory needs to become a new git repo — "init this as a new repo", "set up a new repo here". /repo:init runs git init in the directory you are already in, never wrapping it in a new folder, then commits a placeholder README, wires origin, and pushes main; everything after that first commit goes via a branch and a Pull Request (PR).
+description: Invoke when the current directory needs to become a new git repo — "init this as a new repo", "set up a new repo here". /repo:init runs git init in the directory you are already in, never wrapping it in a new folder, then commits a placeholder README, wires origin (creating the repo on GitHub or GitLab if asked), and pushes main; everything after that first commit goes via a branch and a Pull Request (PR).
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # repo:init — bootstrap a new repo in the current directory
@@ -51,13 +51,14 @@ After the first commit, check `git remote get-url origin` — expect failure (no
 > Pick one:
 > a) Create on GitHub as `<suggested-slug>` — I'll run `gh repo create`.
 > b) Create on GitHub with a different name — reply with the slug or a short description.
-> c) Use an existing remote — paste the URL.
+> c) Create on GitLab as `<suggested-slug>` — I'll create the project with `glab`. Say if it belongs in a group (`group/<slug>`) or on a self-managed GitLab host rather than gitlab.com.
+> d) Use an existing remote — paste the URL.
 
-If no slug could be suggested, drop option (a) and ask: "What should this repo be called? A short description is fine — I'll propose a slug."
+If no slug could be suggested, drop option (a) and the slug from option (c), and ask: "What should this repo be called? A short description is fine — I'll propose a slug."
 
 **Branch on the reply:**
 
-1. **"a" / yes / use the suggestion** → proceed with `<suggested-slug>`.
+1. **"a" / yes / use the suggestion** → proceed with `<suggested-slug>`. **"c"**, or GitLab named in the reply → the same slug rules, then § Create on GitLab instead of GitHub.
 2. **User types a slug directly** (matches `^[a-z0-9][a-z0-9._-]*$`, length ≤ 100) → use it verbatim. If validation fails, show the issue and ask again.
 3. **User types a description** (free text, not a valid slug) → propose a slug from it using the same normalisation rules. Show the proposal and confirm before running.
 4. **User pastes a URL** (starts with `https://`, `git@`, or `ssh://`; a plain `http://` URL also lands here and is refused at step 1) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
@@ -85,13 +86,28 @@ If no slug could be suggested, drop option (a) and ask: "What should this repo b
    (Swap `--private` for `--public` if the user picked public.) This single command creates the GitHub repo, adds it as `origin`, and pushes `main`.
 4. On success, print the URL: `gh repo view --json url -q .url`.
 
+## Create on GitLab
+
+1. The host is `gitlab.com` unless the user named another; it must match `^[A-Za-z0-9.-]+$`. A group, if named, must match `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`.
+2. Run `glab auth status --hostname <host>`. If it fails, stop and tell the user to run `glab auth login --hostname <host>` themselves.
+3. Ask for visibility: `private` (default), `internal` or `public`.
+4. Create the project through the API, which pins the host. For a group, look up its ID first with `glab api --hostname <host> "namespaces/<group with each / as %2F>" | jq .id` and add `-F namespace_id=<id>`:
+   ```bash
+   glab api --hostname <host> --method POST projects \
+     -f name='<slug>' -f path='<slug>' -f visibility=private -f default_branch=main \
+     | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
+   ```
+   A 400 naming the path means the project already exists; ask for another slug.
+5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push with case 4's refspec: `git push -u origin refs/heads/main:refs/heads/main`. The user's yes to creating the project covers this push, as it does for `gh repo create --push`.
+6. Print the `web_url`.
+
 ## Forbidden in this skill
 
 - Wrapping the new repo in a directory you created (the load-bearing rule).
 - `git add .` / `git add -A` / `git add <anything other than README.md>` in the first commit.
 - Any form of `--force` / `-f`. Force-pushing a brand-new `main` is never warranted.
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
-- Running `gh repo create` without an explicit yes from the user in their own words.
+- Running `gh repo create`, or creating a GitLab project, without an explicit yes from the user in their own words.
 - Pushing to a pasted URL before the user has confirmed the push URL git reports.
 - `--no-verify`, `--no-gpg-sign`.
 
