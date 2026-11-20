@@ -96,11 +96,11 @@ Detect the platform first. Indicators:
 - **Claude Desktop / claude.ai web:** you are operating through the consumer UI; no shell access.
 - **Claude Agent SDK:** you are embedded in another application via the SDK.
 - **Codex (OpenAI CLI):** OpenAI's coding CLI; reads `AGENTS.md` natively.
-- **Cursor:** Cursor IDE; rules live under `.cursor/rules/`.
+- **Cursor:** Cursor IDE; skills live under `.cursor/skills/`.
 
 If you cannot determine the platform, ask the human.
 
-**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, such as either `tracing` skill, uses files elsewhere in its plugin, so it needs a plugin install, which puts the whole plugin on disk: the Claude Code marketplace or Codex. The single-skill routes — the Claude Code manual fallback, the Claude Agent SDK, Claude Desktop and Cursor — install one skill folder or its `SKILL.md`, so they take only a skill whose files all sit inside that folder.
+**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, such as either `tracing` skill, uses files elsewhere in its plugin, so it needs a plugin install, which puts the whole plugin on disk: the Claude Code marketplace or Codex. The single-skill routes — the Claude Code manual fallback, the Claude Agent SDK, Claude Desktop and Cursor — install one skill folder, so they take only a skill whose files all sit inside that folder.
 
 ### Claude Code (CLI)
 
@@ -171,10 +171,15 @@ Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or
 
 ### Cursor
 
-Cursor supports SKILL.md-style files and a rules system under `.cursor/rules/<name>.mdc`. Install:
+Cursor loads Agent Skills: each skill is a folder holding `SKILL.md`, found under `<project>/.cursor/skills/` for one project or `~/.cursor/skills/` for every project, and the skill reads the other files in that folder by paths relative to it. Install:
 
-1. Clone the repo.
-2. For each desired skill, within the plugin-install rule above (this is a single-skill route), copy `plugins/<plugin>/skills/<skill>/SKILL.md` to `<project>/.cursor/rules/<skill>.mdc`. Preserve the YAML frontmatter.
+1. Clone the repo with the `git clone` command in the Claude Code fallback above, or use an existing clone.
+2. For each desired skill, within the plugin-install rule above (this is a single-skill route), copy the whole skill folder, with `SKILL.md` and every file and subfolder beside it, into a skills directory. Keep the folder's name, which Cursor requires to match the `name` in the skill's frontmatter. Replace `<clone>` with the clone's absolute path and `<skills>` with `<project>/.cursor/skills` or `$HOME/.cursor/skills`:
+
+   ```bash
+   mkdir -p "<skills>" &&
+     cp -R "<clone>/plugins/<plugin>/skills/<skill>" "<skills>/"
+   ```
 3. If the skill's body references commands or paths specific to Claude Code (like `/plugin`), call that out — they will not work in Cursor.
 
 Cursor's plugin ecosystem is still maturing. Test the skill in a throwaway file before recommending it for daily use.
