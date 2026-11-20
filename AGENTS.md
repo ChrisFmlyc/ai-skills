@@ -128,7 +128,7 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
-Give the human these commands to build the ZIP, with `<clone>` replaced by the path of their clone of this repo:
+Give the human these commands to build the ZIP, with `<clone>` replaced by the absolute path of their clone of this repo, such as `$HOME/code/ai-skills`:
 
 ```bash
 cd "<clone>/plugins/<plugin>/skills" &&
