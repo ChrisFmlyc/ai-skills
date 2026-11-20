@@ -70,11 +70,12 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
       ```
    3. If any URL it printed starts with `http://`, in any letter case, push nothing: run `git remote remove origin`, tell the user which URL is plain HTTP, that it would send the code and any credentials unencrypted, and that nothing was pushed, and stop.
    4. Ask: *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
-   5. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch, with git limited to HTTPS and SSH so that a server redirecting the push can send it on only to `https://`. `GIT_ALLOW_PROTOCOL` overrides git config, `-c` included, so the push sets it to `https:ssh` as well as turning plain HTTP off:
+   5. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch, with git limited to HTTPS and SSH so that a server redirecting the push can send it on only to `https://`, and with `--porcelain` so git reports what happened to `main` at each URL. `GIT_ALLOW_PROTOCOL` overrides git config, `-c` included, so the push sets it to `https:ssh` as well as turning plain HTTP off:
       ```bash
-      GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never push -u origin refs/heads/main:refs/heads/main
+      GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never push --porcelain -u origin refs/heads/main:refs/heads/main
       ```
-      If git refuses the push because a server redirected it to plain HTTP (the error names the URL and the `http` protocol), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, name each URL git's output shows `main` reached (its `To <url>` lines) or say nothing was pushed when there are none, and stop.
+      For each URL it reached, git prints `To <url>` and then a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary. A flag of `*`, `=` or a space means that URL has `main`; `!` means it refused `main`, and the summary says why. A `To <url>` line with no status line for `main` after it leaves that URL uncertain.
+      If git refuses the push because a server redirected it to plain HTTP (the error names the URL and the `http` protocol), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, then list separately the URLs whose status line shows they have `main`, those that refused it, and those left uncertain, saying no URL has `main` when none does, and stop.
    Done — print the push URLs and a one-line summary.
 
 ## Cases 1–3: create on GitHub
@@ -116,13 +117,13 @@ If any URL it prints starts with `http://`, in any letter case, push nothing: ru
 
 If it prints exactly one URL and that is the URL `origin` was added with, the user's yes already covers the push. Otherwise ask *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
 
-Then push with case 4's refspec, limited to HTTPS and SSH as case 4 describes:
+Then push with case 4's refspec and `--porcelain`, limited to HTTPS and SSH as case 4 describes:
 
 ```bash
-GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never push -u origin refs/heads/main:refs/heads/main
+GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never push --porcelain -u origin refs/heads/main:refs/heads/main
 ```
 
-If git refuses the push because a server redirected it to plain HTTP (the error names the URL and the `http` protocol), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, and that the new repo was created, name each URL git's output shows `main` reached (its `To <url>` lines) or say nothing was pushed when there are none, and stop.
+If git refuses the push because a server redirected it to plain HTTP (the error names the URL and the `http` protocol), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, and that the new repo was created, then read the status line under each `To <url>` as case 4 describes and list separately the URLs that have `main`, those that refused it, and those left uncertain, saying no URL has `main` when none does, and stop.
 
 When git listed exactly the URL `origin` was added with, `main` is on the created repo and the completion output stands as written. Otherwise `main` is on the URLs git listed, and a rewritten URL can still reach the created repo by another address, so ask the host's API, which git's URL rewriting does not touch, whether the created repo has `main`:
 
