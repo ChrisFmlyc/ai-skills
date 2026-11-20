@@ -28,7 +28,7 @@ On GitHub a bot is known by its login; on GitLab by its `kind` in the bot list
 
 | Bot | GitHub login / GitLab `kind` | Paused, skipped or failed | Rate-limited | One-off review |
 |---|---|---|---|---|
-| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped", "Review failed" or "Review cancelled"; or it failed without giving a reason: a run concluded `failure`, `cancelled` or `timed_out`, a GitHub status `failure` or `error`, or a GitLab status `failed` or `canceled`, whose title or description reads no phrase in this row and no outcome in [Finished, or not worth asking](#finished-or-not-worth-asking); or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`; such a notice also gives the reason for a run or status that failed without one. | `@coderabbitai review` |
+| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped", "Review failed" or "Review cancelled"; or it failed without giving a reason: a run concluded `failure`, `cancelled` or `timed_out`, a GitHub status `failure` or `error`, or a GitLab status `failed` or `canceled`, whose title or description reads no phrase in this row and no outcome in [Finished, or not worth asking](#finished-or-not-worth-asking); or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`. A rate limit outweighs the column before it, as [What the loop does](#what-the-loop-does) says. | `@coderabbitai review` |
 | Greptile | `greptile-apps[bot]` / `greptile` | None: it skips drafts and filtered PRs without a word, so silence is the signal. | None documented. | `@greptileai review` |
 | Wiz Code | `wiz-<tenant id>[bot]` / `generic` | None: its check runs appear only once a scan has finished, and a scan that times out reports passed. | None documented. | None: it has no re-scan command. |
 | any other bot | any / `generic` | None known. | None known. | None. |
@@ -82,6 +82,12 @@ working and gets no request. On GitHub the `coderabbit-check` query gives the
 run or status no time, so the notice decides: asking a bot that is already
 working costs one incremental review, while waiting on one that has stopped
 leaves your commit unreviewed at the deadline.
+
+A rate limit outweighs a pause, skip or failure. When one of the bot's
+signals about your latest commit says it hit a rate limit and another says it
+paused, skipped or failed, with a reason or without one, it counts as
+rate-limited, so its request waits for the limit to end: one posted during
+the limit is refused, and spends the bot's one request for that commit.
 
 1. **Paused, skipped or failed:** post the bot's one-off command now.
 2. **Rate-limited, with a wait of 60 minutes or less:** keep checking the
@@ -187,8 +193,8 @@ the adapter row's phrases and no outcome in
 [Finished, or not worth asking](#finished-or-not-worth-asking): a run that
 concluded `failure`, `cancelled` or `timed_out`, or a status in state
 `failure` or `error`, means CodeRabbit stopped before it reviewed the commit.
-It counts as failed and gets the one-off request by rule 1, or, when a
-rate-limit notice about your latest commit says why, once its wait allows.
+It counts as failed, and [What the loop does](#what-the-loop-does) says when
+it gets the one-off request.
 
 ## The `notice` query
 
