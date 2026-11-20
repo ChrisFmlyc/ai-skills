@@ -161,17 +161,23 @@ To close one, post a comment and then resolve the thread:
 
 ```bash
 gh api "repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies" \
-  --method POST -f body='(ai-skills:loop) Fixed in 3b097be. The eval workflow now runs when eval assets change.'
-gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<thread-id>
+  --method POST -f body='(ai-skills:loop) Fixed in 3b097be. The eval workflow now runs when eval assets change.' ||
+  { echo "ERROR: the reply on thread <thread-id> failed, so the thread is still open" >&2; exit 1; }
+gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<thread-id> ||
+  { echo "ERROR: thread <thread-id> has its reply but did not resolve" >&2; exit 1; }
 ```
 
 On GitLab, reply to the discussion and then resolve it:
 
 ```bash
 glab api --hostname <host> --method POST "projects/<target_project_id>/merge_requests/<iid>/discussions/<discussion-id>/notes" \
-  -f body='(ai-skills:loop) Fixed in 3b097be. The eval workflow now runs when eval assets change.'
-glab api --hostname <host> --method PUT "projects/<target_project_id>/merge_requests/<iid>/discussions/<discussion-id>" -F resolved=true
+  -f body='(ai-skills:loop) Fixed in 3b097be. The eval workflow now runs when eval assets change.' ||
+  { echo "ERROR: the reply on discussion <discussion-id> failed, so the discussion is still open" >&2; exit 1; }
+glab api --hostname <host> --method PUT "projects/<target_project_id>/merge_requests/<iid>/discussions/<discussion-id>" -F resolved=true ||
+  { echo "ERROR: discussion <discussion-id> has its reply but did not resolve" >&2; exit 1; }
 ```
+
+The resolve runs only once the reply has posted, so a thread never closes without its answer. If either call prints an ERROR, STOP and pass it on.
 
 Write the comment like this:
 
@@ -244,11 +250,15 @@ Do not work around it by re-running `/codereview:fix` unchanged. A stale branch 
 For a `no-thread` answer, find the thread by matching the finding's first sentence against the thread's first comment, then post and resolve:
 
 ```bash
-gh api "repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies" --method POST -f body='(ai-skills:loop) <the answer it wrote>'
-gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<thread-id>
+gh api "repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies" --method POST -f body='(ai-skills:loop) <the answer it wrote>' ||
+  { echo "ERROR: the reply on thread <thread-id> failed, so the thread is still open" >&2; exit 1; }
+gh api graphql -f query='mutation($t:ID!){resolveReviewThread(input:{threadId:$t}){thread{isResolved}}}' -F t=<thread-id> ||
+  { echo "ERROR: thread <thread-id> has its reply but did not resolve" >&2; exit 1; }
 ```
 
 On GitLab, find the discussion the same way in the step 2 list, then post and resolve it with the two `glab api` calls from step 3.
+
+On either host, the resolve runs only once the reply has posted. If either call prints an ERROR, STOP and pass it on, as in step 3.
 
 You are posting it, so it starts with `(ai-skills:loop)`.
 
