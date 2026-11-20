@@ -75,7 +75,7 @@ bot.
 
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
-| `coderabbit` | Its `CodeRabbit` commit status on the head commit (query below) is `success`. `pending` ("Review queued", "Review in progress") is still working. A paused or skipped review ("Review paused", "Review skipped") is a STOP: report it, because only a person resumes it. With no `CodeRabbit` status on the head commit at all, use the `generic` rule. | Yes, on its next review. | None — it reviews every push. |
+| `coderabbit` | Its `CodeRabbit` commit status on the head commit is `success` with a description saying the review is done, as the query below sets out. `pending` is still working. A paused or skipped review is a STOP: report it, because only a person resumes it. Any other status or description, a rate-limited review among them, does not count as finished: use the `generic` rule, as when the head commit has no `CodeRabbit` status at all. | Yes, on its next review. | None — it reviews every push. |
 | `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule alone, with its re-trigger posted before silence can finish it. Its reviewer state, which GitLab Duo's Code Review Flow sets to `approved` (nothing found) or `requested_changes`, is for the report only: it can be left from an earlier head, and it explains a `requested_changes` merge status. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
@@ -114,6 +114,24 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/repository/c
   | jq -sc '(if length == 0 then error("no response from glab") else add end)
             | [.[] | select(.name == "CodeRabbit") | {status, description}] | first'
 ```
+
+It prints the status and its description, or `null` when the head commit has
+no `CodeRabbit` status. Match the description by these phrases, ignoring case,
+and take the first case that holds:
+
+- "Review paused" or "Review skipped", whatever the status: a STOP. Report it;
+  only a person resumes the review.
+- `success` with "Review completed", "No reviewable changes" or "Prior review
+  carried forward": finished.
+- `pending`, such as "Review queued" or "Review in progress": still working.
+- Anything else, such as a rate-limited review, a `failure`, or a `success`
+  whose description matches none of the phrases above: not finished by its
+  status. A rate-limited review has not reviewed the head commit at all. Use
+  the `generic` rule instead, and step 1's deadline still applies.
+
+The phrases follow CodeRabbit's status-check documentation, and their wording
+on GitLab is unverified, so a description that matches none of them never
+counts as finished.
 
 The `greptile` query, with the bot's pinned ID:
 
