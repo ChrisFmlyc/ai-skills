@@ -269,20 +269,24 @@ why it works across languages.
 
 | Situation | Shape |
 |---|---|
-| First delivery, valid context present, the message goes to exactly one consumer, and handling it publishes no further message | **Continue** — one trace end to end |
-| First delivery, valid context present, and the message goes to several consumers or handling it publishes a further message | **New root + link** |
+| First delivery, valid context present, the message has exactly one consumer, and its handler never publishes a further message | **Continue** — one trace end to end |
+| First delivery, valid context present, and the message has several consumers or its handler can publish a further message | **New root + link** |
 | Redelivery / retry | **New root + link** — the original trace already closed |
 | Long human delay (email → click, days later) | **New root + link** |
 | Clock-driven work (timer, cron) | **Root, no link** — nothing caused it |
 | Fan-in (one batch, many causes) | **New root + link to each** |
 | No context present | **Plain root**, record `trace_context.present=false` |
 
+The handler picks its row when it starts its span, from the message's routing and
+its own code: a handler that publishes on any path, even one taken only when an
+external call fails, takes the link row on every delivery.
+
 Linking where you could continue costs something concrete: one request becomes
 two disconnected traces, and because log records take the trace id of the active
 span, the producer's trace shows producer logs and nothing else. Linking at every
-consumer that publishes onward is what keeps each trace to at most one message hop,
-however long the pipeline grows; the flow-level correlation id below joins the
-hops.
+consumer that can publish onward is what keeps each trace to at most one message
+hop, however long the pipeline grows; the flow-level correlation id below joins
+the hops.
 
 Prefer new-root-plus-link when the causing span has already ended. Re-parenting
 onto a finished span reopens it and stretches its duration across the entire gap.
@@ -323,6 +327,12 @@ you also need —
 Carry a flow-level id in **baggage** and stamp it onto every span as an attribute.
 It stays constant whichever shape each hop chose, so one query spans continued and
 linked chains alike.
+
+Every consumer carries the id across its hop itself, on both shapes: grafting
+copies only the remote span context, and a link holds nothing but a span context.
+Read the id from the extracted context's baggage and set it as the baggage of the
+context the handler runs in, so injecting from that context sends it to the next
+hop.
 
 Filter baggage to that key only. Baggage goes in plaintext headers to every
 downstream service; a permissive filter is an exfiltration path.
