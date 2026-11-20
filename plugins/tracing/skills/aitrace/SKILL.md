@@ -107,14 +107,16 @@ Without this, traces are `anonymous`.
 1. **Typecheck/build** so the wiring compiles (`npm run typecheck` / `tsc --noEmit`). Fix type errors.
 2. **Emit a trace:** run the agent once for real, ensuring the process flushes
    (`await mastra.shutdown()` on short-lived scripts — see lessons).
-3. **Read it back** through the PostHog MCP if it is connected (see below),
-   otherwise with the REST script:
+3. **Read it back** through the PostHog MCP when it is connected and
+   authenticated (see below). When the MCP is not connected or its
+   authentication fails, run the REST script, which needs a personal `phx_` key
+   and no auth flow:
    ```
    POSTHOG_PERSONAL_API_KEY=phx_… POSTHOG_PROJECT_ID=<id> \
      npx tsx@4.23.15 ${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts
    ```
-   PASS = `$ai_generation` events found. FAIL prints the likely cause. If
-   neither the MCP nor a personal key is available, say so and tell the human
+   PASS = `$ai_generation` events found. FAIL prints the likely cause. With
+   neither an authenticated MCP nor a personal key, say so and tell the human
    to check **AI engineering → Traces** — don't claim success you didn't verify.
 
 Report: what you wired, validator PASS/FAIL, and the honest caveat
