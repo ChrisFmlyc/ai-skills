@@ -50,20 +50,30 @@ Do not run the install command yourself. The user decides what third-party code 
 
 If you were called without a title or body, there is nothing to rewrite. STOP and raise an ERROR saying no title or body was supplied.
 
-Read the diff as well. You check every claim in the draft against it. Find the default branch first, because `origin/HEAD` is not set in every clone. A single-branch clone also lacks the default branch's remote-tracking ref, so when that ref is missing the snippet fetches it from `origin`. The fetch reads from the remote and leaves the working tree alone:
+Read the diff as well. You check every claim in the draft against it, so read the diff the PR will merge: from the branch it merges into, its target, to `HEAD`. When the calling agent names the target, set `target` in the snippet below to that branch's name, such as `develop`. It names it in its request, or as the `--base` of the `gh pr create` or the `--target-branch` of the `glab mr create` it will run. Leave `target` empty when it names none; the PR then merges into the default branch.
+
+The snippet finds the default branch either way, because step 3 reads its history. `origin/HEAD` is not set in every clone, so it falls back to asking the remote. A single-branch clone lacks the remote-tracking refs of other branches, so when the ref for the default branch or the target is missing the snippet fetches it from `origin`. The fetch reads from the remote and leaves the working tree alone:
 
 ```bash
-base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
+target=""
+default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
   || git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "origin/", $2); print $2; found = 1; exit } END { exit !found }' \
   || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null \
   || glab repo view --output json 2>/dev/null | jq -r '.default_branch // empty | "origin/" + .' 2>/dev/null)
-if [ -n "$base" ] && ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
-  git fetch --quiet origin "refs/heads/${base#origin/}:refs/remotes/$base" 2>/dev/null || base=
-fi
-[ -n "$base" ] && echo "$base"
+tracked() {  # print remote-tracking ref $1, fetching it from origin when it is missing
+  [ -n "$1" ] || return 1
+  git rev-parse --verify --quiet "$1^{commit}" >/dev/null \
+    || git fetch --quiet origin "refs/heads/${1#origin/}:refs/remotes/$1" 2>/dev/null \
+    || return 1
+  echo "$1"
+}
+default=$(tracked "$default")
+if [ -n "$target" ]; then base=$(tracked "origin/${target#origin/}"); else base=$default; fi
+echo "BASE=$base"
+echo "DEFAULT=$default"
 ```
 
-Call what it prints `BASE`, for example `origin/main`, and read the diff with `git diff BASE...HEAD`. If it prints nothing, do not run the diff. Tell the calling agent the default branch could not be found, and ask which branch the PR merges into. Use `origin/<that branch>` as `BASE`.
+Call the two values it prints `BASE` and `DEFAULT`, for example `origin/develop` and `origin/main`; without a target they are the same. Read the diff with `git diff BASE...HEAD`. If `BASE` is empty, do not run the diff. Tell the calling agent which branch could not be found, the target it named or the default branch, and ask which branch the PR merges into. Run the snippet again with `target` set to the answer.
 
 ## 3. Read the repo's own rules
 
@@ -71,7 +81,7 @@ Some repos set their own PR title rules. Look for them before you use the defaul
 
 - a commitlint config (`commitlint.config.*`, `.commitlintrc*`), or a workflow that checks PR titles, usually `amannn/action-semantic-pull-request`
 - `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md` or an MR template under `.gitlab/merge_request_templates/`
-- recent commit subjects on the default branch: `git log --format=%s -30 BASE`
+- recent commit subjects on the default branch: `git log --format=%s -30 DEFAULT`, or `BASE` when `DEFAULT` is empty
 
 Where the repo sets a rule, such as its own type list, required scopes, or a template with sections, follow the repo. The git log shows which scopes are in use and how they are spelled. Anything the repo leaves open comes from the rules below.
 
