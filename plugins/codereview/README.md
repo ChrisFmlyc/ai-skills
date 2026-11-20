@@ -13,7 +13,7 @@ Two skills for working code review findings on a GitHub Pull Request (PR) or a G
 
 Both skills work the same way on either host. GitHub goes through `gh`; GitLab goes through `glab`, where review threads are MR discussions and every API call names the MR's host, target project and number. A link with `/-/merge_requests/` in it, or an `origin` whose host contains `gitlab`, selects GitLab; pass the MR link for a GitLab instance on any other host. GitLab nests projects in groups, so the checks that `origin` is the MR's project compare the whole path after the host, not just the last `owner/name`.
 
-GitLab marks no account as a review bot — CodeRabbit, Greptile and others post as whatever account their installer set up — so on GitLab the loop touches only the accounts you list. Pass them with the MR link, or keep them in `.codereview.yml` at the repository root:
+GitLab marks no account as a review bot — CodeRabbit, Greptile and others post as whatever account their installer set up — so on GitLab the loop touches only the accounts you list. Pass them with the MR link, or keep them in `.codereview.yml` on the project's default branch (the loop reads it there through the API, never from the MR's own branch):
 
 ```
 /codereview:loop https://gitlab.example.com/acme/app/-/merge_requests/7 --bots acme-coderabbit:coderabbit,GitLabDuo:duo
