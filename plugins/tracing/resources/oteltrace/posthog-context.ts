@@ -145,8 +145,28 @@ export function stampPostHogIdentity(span: Span, ctx?: Context): void {
  * the trace), W3C `baggage` carrying the flow id that withIncoming placed on the
  * context, and the PostHog identity (so its logs land on the same person and
  * session). Call INSIDE the span whose context should propagate.
+ *
+ * The carrier ends holding exactly what the active context and identity produce.
+ * Every header this function writes (`traceparent`, `tracestate`, `baggage`, any
+ * other field of the registered propagator, and the two PostHog headers) is
+ * removed first, in any letter case, and every other header is kept. The
+ * propagators and the identity write only what is present, so this is what
+ * stops a reused carrier sending a previous call's trace, flow id or person.
  */
 export function injectOutgoing(headers: Headers = {}): Headers {
+  const owned = new Set(
+    [
+      'traceparent',
+      'tracestate',
+      'baggage',
+      ...propagation.fields(),
+      PH_DISTINCT_ID_HEADER,
+      PH_SESSION_HEADER,
+    ].map((name) => name.toLowerCase()),
+  );
+  for (const name of Object.keys(headers)) {
+    if (owned.has(name.toLowerCase())) delete headers[name];
+  }
   propagation.inject(context.active(), headers);
   const { distinctId, sessionId } = currentPostHogIdentity();
   if (distinctId) headers[PH_DISTINCT_ID_HEADER] = distinctId;
