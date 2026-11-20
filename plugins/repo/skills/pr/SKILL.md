@@ -52,28 +52,32 @@ If you were called without a title or body, there is nothing to rewrite. STOP an
 
 Read the diff as well. You check every claim in the draft against it, so read the diff the PR will merge: from the branch it merges into, its target, to `HEAD`. When the calling agent names the target, set `target` in the snippet below to that branch's name, such as `develop`. It names it in its request, or as the `--base` of the `gh pr create` or the `--target-branch` of the `glab mr create` it will run. Leave `target` empty when it names none; the PR then merges into the default branch.
 
-The snippet finds the default branch either way, because step 3 reads its history. It asks the remote first, because `origin/HEAD` is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to `origin/HEAD`, then to `gh` or `glab`. It then fetches the default branch and the target from `origin` every time. A remote-tracking ref only moves when something fetches it, so one left behind by an older fetch gives a diff against commits the PR will not merge into; the fetch also creates the refs a single-branch clone lacks. When the fetch fails, as it does offline, the snippet uses the ref it already has. The fetch reads from the remote and leaves the working tree alone:
+The target and the default branch belong to the repository the PR is opened in, and `remote` in the snippet is the git remote for that repository. It stays `origin` unless the PR goes from a fork into its upstream. The calling agent names that repository in its request, or as the `--repo` of the `gh pr create` or `glab mr create` it will run. When it names none and `git remote` lists more than one remote, `gh` and `glab` choose the repository themselves, and they prefer a remote named `upstream` to `origin`; `gh repo view --json url` or `glab repo view --output json` prints the one they will use. Set `remote` to the name `git remote -v` lists for that repository, such as `upstream`. If no remote points at it, tell the calling agent so and wait for it to name one.
+
+The snippet finds the default branch whether or not there is a target, because step 3 reads its history. It asks the remote first, because the remote's `HEAD` ref, such as `origin/HEAD`, is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to that ref, then to `gh` or `glab`. It then fetches the default branch and the target from the remote every time. A remote-tracking ref only moves when something fetches it, so one left behind by an older fetch gives a diff against commits the PR will not merge into; the fetch also creates the refs a single-branch clone lacks. When the fetch fails, as it does offline, the snippet uses the ref it already has. The fetch reads from the remote and leaves the working tree alone:
 
 ```bash
 target=""
-default=$(git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "origin/", $2); print $2; found = 1; exit } END { exit !found }' \
-  || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
-  || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null \
-  || glab repo view --output json 2>/dev/null | jq -r '.default_branch // empty | "origin/" + .' 2>/dev/null)
-tracked() {  # refresh remote-tracking ref $1 from origin and print it; keep the local ref when the fetch fails
+remote=origin
+url=$(git remote get-url "$remote")
+default=$(git ls-remote --symref "$remote" HEAD 2>/dev/null | awk -v r="$remote/" '$1 == "ref:" { sub("^refs/heads/", r, $2); print $2; found = 1; exit } END { exit !found }' \
+  || git symbolic-ref --short "refs/remotes/$remote/HEAD" 2>/dev/null \
+  || gh repo view "$url" --json defaultBranchRef -q "\"$remote/\" + .defaultBranchRef.name" 2>/dev/null \
+  || glab repo view "$url" --output json 2>/dev/null | jq -r --arg r "$remote/" '.default_branch // empty | $r + .' 2>/dev/null)
+tracked() {  # refresh remote-tracking ref $1 from $remote and print it; keep the local ref when the fetch fails
   [ -n "$1" ] || return 1
-  git fetch --quiet origin "+refs/heads/${1#origin/}:refs/remotes/$1" 2>/dev/null \
+  git fetch --quiet "$remote" "+refs/heads/${1#"$remote/"}:refs/remotes/$1" 2>/dev/null \
     || git rev-parse --verify --quiet "$1^{commit}" >/dev/null \
     || return 1
   echo "$1"
 }
 default=$(tracked "$default")
-if [ -n "$target" ]; then base=$(tracked "origin/${target#origin/}"); else base=$default; fi
+if [ -n "$target" ]; then base=$(tracked "$remote/${target#"$remote/"}"); else base=$default; fi
 echo "BASE=$base"
 echo "DEFAULT=$default"
 ```
 
-Call the two values it prints `BASE` and `DEFAULT`, for example `origin/develop` and `origin/main`; without a target they are the same. Read the diff with `git diff BASE...HEAD`. If `BASE` is empty, do not run the diff. Tell the calling agent which branch could not be found, the target it named or the default branch, and ask which branch the PR merges into. Run the snippet again with `target` set to the answer.
+Call the two values it prints `BASE` and `DEFAULT`, for example `origin/develop` and `origin/main`, or `upstream/develop` and `upstream/main` for a PR from a fork; without a target they are the same. Read the diff with `git diff BASE...HEAD`. If `BASE` is empty, do not run the diff. Tell the calling agent which branch could not be found on `remote`, the target it named or the default branch, and ask which branch the PR merges into. Run the snippet again with `target` set to the answer.
 
 ## 3. Read the repo's own rules
 
