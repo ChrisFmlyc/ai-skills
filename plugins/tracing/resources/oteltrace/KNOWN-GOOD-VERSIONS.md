@@ -37,8 +37,7 @@ instrument time — fix the subpath then, not in production.
 
 This reference targets **1.x**: it builds resources with `new Resource({...})`. In OTel JS
 **2.x** that constructor was removed — use `resourceFromAttributes({...})` from
-`@opentelemetry/resources`, which is what PostHog's own installation docs show. If you pin
-2.x in the target project, that is the one call to translate.
+`@opentelemetry/resources`, which is what PostHog's own installation docs show.
 
 ## PostHog OTLP (version-independent — but easy to get wrong)
 

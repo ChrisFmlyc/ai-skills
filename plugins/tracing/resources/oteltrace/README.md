@@ -9,6 +9,7 @@ canonical demonstration of *what* to build.
 | File | What it is |
 |---|---|
 | `OTEL-STANDARD.md` | **The governing document.** Backend-agnostic rules for spans, logs, metrics, correlation, links, redaction and testing. Read it first; on any conflict it wins over the code below. |
+| `POSTHOG-INGESTION.md` | The PostHog side: OTLP endpoint per signal, the attributes that make a record clickable, the env-var contract, the per-language SDK lookup. |
 | `telemetry.ts` | Fail-soft `createTelemetry()` bootstrap: console-as-an-exporter, OTel Logs API, register-tracer-last, redaction ahead of every exporter on both pipelines, empty-resource fallback. The showpiece. |
 | `logger.ts` | OTel Logs API logger (emits natively rather than via a bridge — see §0); auto trace-correlated; lifts Error fields. |
 | `posthog-context.ts` | Cross-service context (§6): `traceparent` inject / detached extract / graft-onto-live, plus PostHog's `posthogDistinctId` + `sessionId` identity headers so logs and spans link to the person and the session replay. `logger.ts` merges these onto every record. |

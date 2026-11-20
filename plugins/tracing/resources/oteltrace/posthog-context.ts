@@ -4,8 +4,9 @@
 // alternatives — a correct hop carries both:
 //
 //   1. TRACE context (W3C `traceparent`), which decides whether the next hop is
-//      the same trace. OTEL-STANDARD.md §6: attachment is the context, always.
-//      Inject on the producer, Extract on the consumer, into a DETACHED context.
+//      the same trace, plus the flow id in W3C `baggage` (FLOW_ID_BAGGAGE_KEY).
+//      OTEL-STANDARD.md §6: attachment is the context, always. Inject on the
+//      producer, Extract on the consumer, into a DETACHED context.
 //   2. POSTHOG identity context, which decides whether the resulting logs/spans
 //      are clickable through to a person and a session replay:
 //        * `posthogDistinctId` — matched against every distinct_id PostHog knows
@@ -35,6 +36,13 @@ export const PH_DISTINCT_ID_HEADER = 'x-posthog-distinct-id';
 /** The ATTRIBUTE keys PostHog matches on. These names are not ours to choose. */
 export const PH_DISTINCT_ID_ATTR = 'posthogDistinctId';
 export const PH_SESSION_ATTR = 'sessionId';
+
+// A flow-level correlation id in BAGGAGE, stamped on every span as an attribute,
+// stays constant whether a hop continued the trace or started a new root + link —
+// so one query spans both shapes (§6). Filter baggage to that ONE key: baggage
+// goes in plaintext headers to every downstream service, and a permissive filter
+// is an exfiltration path.
+export const FLOW_ID_BAGGAGE_KEY = 'app.flow_id';
 
 export interface PostHogIdentity {
   distinctId?: string;
@@ -89,12 +97,21 @@ export function extractIncoming(headers: Headers): {
 }
 
 /**
- * Run `fn` with the inbound identity attached, and with the remote span context
- * GRAFTED onto the LIVE context when continuing.
+ * Run `fn` in the LIVE context with the inbound identity and flow id attached,
+ * and with the remote span context GRAFTED on when continuing.
  *
  * Grafting, not adopting: the extracted context was built from ROOT_CONTEXT and
  * carries no deadline or cancellation, so handing it straight to the handler
  * makes the work un-cancellable on shutdown (§6).
+ *
+ * The flow id crosses the hop on both shapes. Grafting copies only the span
+ * context and a link holds nothing else, so the inbound baggage's
+ * FLOW_ID_BAGGAGE_KEY entry becomes the handler context's whole baggage, and
+ * injectOutgoing sends that one key onward.
+ *
+ * Set `continueTrace` by §6's continue-or-link rule before the handler's span
+ * starts. When it is false, start that span with `root: true` and a link to
+ * `trace.getSpanContext(remote)`.
  */
 export function withIncoming<T>(
   { remote, identity }: { remote: Context; identity: PostHogIdentity },
@@ -102,6 +119,13 @@ export function withIncoming<T>(
   continueTrace = true,
 ): T {
   let ctx = context.active().setValue(PH_IDENTITY_KEY, identity);
+  const flowId = propagation.getBaggage(remote)?.getEntry(FLOW_ID_BAGGAGE_KEY);
+  ctx = flowId
+    ? propagation.setBaggage(
+        ctx,
+        propagation.createBaggage({ [FLOW_ID_BAGGAGE_KEY]: { value: flowId.value } }),
+      )
+    : propagation.deleteBaggage(ctx);
   const remoteSpanContext = trace.getSpanContext(remote);
   if (continueTrace && remoteSpanContext) {
     ctx = trace.setSpanContext(ctx, remoteSpanContext);
@@ -118,10 +142,31 @@ export function stampPostHogIdentity(span: Span, ctx?: Context): void {
 
 /**
  * Headers for an outbound call: W3C `traceparent` (so the next hop can continue
- * the trace) plus the PostHog identity (so its logs land on the same person and
+ * the trace), W3C `baggage` carrying the flow id that withIncoming placed on the
+ * context, and the PostHog identity (so its logs land on the same person and
  * session). Call INSIDE the span whose context should propagate.
+ *
+ * The carrier ends holding exactly what the active context and identity produce.
+ * Every header this function writes (`traceparent`, `tracestate`, `baggage`, any
+ * other field of the registered propagator, and the two PostHog headers) is
+ * removed first, in any letter case, and every other header is kept. The
+ * propagators and the identity write only what is present, so this is what
+ * stops a reused carrier sending a previous call's trace, flow id or person.
  */
 export function injectOutgoing(headers: Headers = {}): Headers {
+  const owned = new Set(
+    [
+      'traceparent',
+      'tracestate',
+      'baggage',
+      ...propagation.fields(),
+      PH_DISTINCT_ID_HEADER,
+      PH_SESSION_HEADER,
+    ].map((name) => name.toLowerCase()),
+  );
+  for (const name of Object.keys(headers)) {
+    if (owned.has(name.toLowerCase())) delete headers[name];
+  }
   propagation.inject(context.active(), headers);
   const { distinctId, sessionId } = currentPostHogIdentity();
   if (distinctId) headers[PH_DISTINCT_ID_HEADER] = distinctId;
@@ -137,10 +182,3 @@ export function injectOutgoing(headers: Headers = {}): Headers {
 export function recordTracePresence(span: Span, present: boolean): void {
   span.setAttribute('trace_context.present', present);
 }
-
-// A flow-level correlation id in BAGGAGE, stamped on every span as an attribute,
-// stays constant whether a hop continued the trace or started a new root + link —
-// so one query spans both shapes (§6). Filter baggage to that ONE key: baggage
-// goes in plaintext headers to every downstream service, and a permissive filter
-// is an exfiltration path.
-export const FLOW_ID_BAGGAGE_KEY = 'app.flow_id';

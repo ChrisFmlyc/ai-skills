@@ -11,7 +11,7 @@ This repository is a [Claude Code plugin marketplace](https://docs.claude.com/en
 | Plugin | Description |
 |--------|-------------|
 | [`codereview`](./plugins/codereview) | Code review helpers — `/codereview:fix` works a block of findings, one subagent each; `/codereview:loop` drives a GitHub PR or GitLab MR to zero outstanding findings. |
-| [`tracing`](./plugins/tracing) | PostHog observability, drop-in and validated. `/tracing:aitrace` wires native PostHog AI tracing (`$ai_*`) into a Mastra app — connector, users/sessions, errors, confirmed landing. `/tracing:oteltrace` instruments any app in any language with OpenTelemetry logs + distributed traces to PostHog, governed by a bundled OTel standard (spans only for real actions, no orphans, redaction on both pipelines, a test per gate). |
+| [`tracing`](./plugins/tracing) | PostHog observability, drop-in and validated. `/tracing:aitrace` wires native PostHog AI tracing (`$ai_*`) into a Mastra app — connector, users/sessions, errors, confirmed landing. `/tracing:oteltrace` instruments any app in any language with OpenTelemetry logs, distributed traces and liveness metrics to PostHog, governed by a bundled OpenTelemetry standard. |
 | [`repo`](./plugins/repo) | Repo lifecycle on GitHub or GitLab: bootstrap (`/repo:init`), create branch (`/repo:newbranch`), validate (`/repo:branch`, backed by a hook that blocks commits on `main` and badly named branches before they run), clean up a PR title and body, then pass them through `/unslop` (`/repo:pr`), sync after merge (`/repo:sync`). |
 
 ## Install (humans — Claude Code)
@@ -41,7 +41,7 @@ Restart Claude Code so new slash commands register. After install, `/codereview:
 
 ## Other platforms
 
-The same `SKILL.md` files work in other agent environments (Claude Desktop, Claude Agent SDK, Codex, Cursor), but the install procedure differs. Rather than maintain a parallel set of human instructions per platform, ask your agent: *"Install the ai-skills `<plugin>` plugin"* and it will read [`AGENTS.md`](./AGENTS.md) and follow the right procedure for the platform it's running on.
+The plugins also install whole in Codex and the Claude Agent SDK, and as single skills in Claude Desktop and Cursor, with a different procedure on each and the plugin-install rule in `AGENTS.md` § Deployment deciding which skills need the whole plugin. Ask your agent: *"Install the ai-skills `<plugin>` plugin"* and it will read [`AGENTS.md`](./AGENTS.md) and follow the right procedure for the platform it's running on.
 
 ## Repository layout
 

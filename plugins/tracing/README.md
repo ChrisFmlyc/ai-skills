@@ -1,7 +1,7 @@
 # tracing — observability, wired and validated
 
 Call a skill, get correct instrumentation wired in, and have it **proven end-to-end**
-against real data — no need to learn the SDK internals yourself.
+against real data.
 
 `oteltrace` is the general one: **any app, any language** — OpenTelemetry logs,
 distributed traces and liveness metrics, governed by a bundled OpenTelemetry standard.
@@ -73,7 +73,7 @@ From the `ai-skills` marketplace:
 /plugin install tracing@ai-skills
 ```
 
-Restart Claude Code so the new slash command registers.
+Restart Claude Code so the new slash commands register.
 
 ## Update
 

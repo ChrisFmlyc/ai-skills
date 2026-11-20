@@ -3,8 +3,8 @@
 Where each signal goes, what makes it clickable once it arrives, the env-var
 contract, and the per-language SDK lookup. PostHog's own docs, not inference.
 
-`tracing:oteltrace` links here from Steps 11 and 12; read it when wiring the
-exporter or documenting config.
+`tracing:oteltrace` links here; read it when wiring the exporter or documenting
+config.
 
 ## Contents
 
@@ -68,12 +68,11 @@ PostHog-instrumented the ids arrive on their own; if not, don't fabricate them.
 | `POSTHOG_HOST` | optional (region) | PostHog **ingestion** host; defaults to `https://eu.i.posthog.com`. Set only for non-EU (US: `https://us.i.posthog.com`). **Not** the app host. |
 | `OTEL_TRACES_SAMPLER_RATIO` | recommended | `ParentBased(TraceIdRatioBased)` head sampler; default `1.0`; **lower in PRD** (e.g. `0.1`) for cardinality/cost. |
 | `OTEL_SERVICE_NAME` | recommended | `service.name` resource attr (the routing/filter dimension in PostHog). |
-| `OTEL_ENABLED` | optional | Explicit on/off override; unset → follows the token. `false` force-disables even with a token. |
+| `OTEL_ENABLED` | optional | Off switch: `false` disables export even with a token. Otherwise export follows the token. |
 | `OTEL_LOG_LEVEL` | optional | Min log level for the OTel log pipeline; default `info`. |
 
 One `phc_` key does every job (traces, logs, metrics, error tracking, and any
-flag reads) — don't provision separate keys. The host is the **ingestion** host
-(`i.`), not the app host.
+flag reads) — don't provision separate keys.
 
 **Sampling is a cost control, not a noise control.** Do not reach for it to hide
 orphan or plumbing spans — those get fixed at the call site (§2, §3), or they
@@ -84,7 +83,7 @@ come back at ratio `1.0`.
 The same general logic, per language. Always look up current APIs via `context7`
 or the official docs — SDK APIs drift.
 
-- **TypeScript/Node** — bundled reference in this directory; `@opentelemetry/sdk-node`, `sdk-logs`, `api-logs`, OTLP exporters; Temporal: `@temporalio/interceptors-opentelemetry`.
+- **TypeScript/Node** — bundled reference in this directory, its packages pinned in `KNOWN-GOOD-VERSIONS.md`; Temporal: `@temporalio/interceptors-opentelemetry`.
 - **Go** — `go.opentelemetry.io/otel`, `otel/sdk`, OTLP/HTTP exporters, `otel/log` + `otelslog`; Temporal Go SDK interceptors.
 - **Python** — `opentelemetry-sdk`, `opentelemetry-exporter-otlp`, the logs SDK + `LoggingHandler`; Temporal Python interceptors.
 - **Java / .NET / Ruby / …** — analogous SDKs (Logback/Log4j appenders on the JVM).

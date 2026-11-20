@@ -5,7 +5,7 @@ with OpenTelemetry. **Where this document and anything else disagree, this
 document wins.** The rules are ordered so that later ones depend on earlier ones.
 
 This standard is **backend-agnostic**. The PostHog-specific parts (OTLP paths,
-auth header, env contract) live in the `oteltrace` skill, not here.
+auth header, env contract) live in `POSTHOG-INGESTION.md`.
 
 ---
 
@@ -21,18 +21,18 @@ downstream scrape and re-parse it. That path throws away structure you already
 had and then pays to guess it back. It also loses trace correlation entirely,
 because a text line has nowhere to put a span id.
 
-Instead, get the language's normal logging API into the OTel logs SDK:
+Instead, get logging into the OTel logs SDK by either route: bridge the
+language's normal logging API, or emit through the OTel logs API directly.
 
 | Language | Bridge |
 |---|---|
 | Go | `log/slog` → `otelslog` handler |
 | Python | stdlib `logging` → OTel `LoggingHandler` |
-| Node/TS | pino/winston → OTel appender, **or the logs API directly** |
+| Node/TS | pino/winston → OTel appender |
 | Java | Logback/Log4j → OTel appender |
 
-Application code keeps calling the logger it already uses. The OTel SDK becomes
-the backend. Emitting through the OTel logs API directly is equally compliant —
-what the rule forbids is a *second* pipeline, not a particular entry point.
+With a bridge, application code keeps calling the logger it already uses and the
+OTel SDK becomes the backend.
 
 **Console output is an exporter, not a separate code path.** If you want stdout
 in development, attach a `ConsoleExporter` to the *same* LoggerProvider that has
@@ -166,8 +166,8 @@ or you trace 404s on the right path with the wrong verb.
 **Remove the span, not the call.** The poll still happens; only its span goes.
 Behaviour is unchanged.
 
-Suppress **at the call site**, not at the exporter — nothing is allocated for a
-no-op, and there is no config that can drift from the code.
+Suppress **at the call site** — nothing is allocated for a no-op, and there is no
+config that can drift from the code.
 
 - Use a **private context key** for suppression state.
 - **Never** put it in baggage — baggage travels in plaintext headers to every
@@ -269,17 +269,24 @@ why it works across languages.
 
 | Situation | Shape |
 |---|---|
-| First delivery, valid context present | **Continue** — one trace end to end |
+| First delivery, valid context present, the message has exactly one consumer, and its handler never publishes a further message | **Continue** — one trace end to end |
+| First delivery, valid context present, and the message has several consumers or its handler can publish a further message | **New root + link** |
 | Redelivery / retry | **New root + link** — the original trace already closed |
 | Long human delay (email → click, days later) | **New root + link** |
 | Clock-driven work (timer, cron) | **Root, no link** — nothing caused it |
 | Fan-in (one batch, many causes) | **New root + link to each** |
 | No context present | **Plain root**, record `trace_context.present=false` |
 
-Prefer continuing when a message has exactly one consumer and the chain is short —
-a handful of spans. Always-linking costs something concrete: one request becomes
+The handler picks its row when it starts its span, from the message's routing and
+its own code: a handler that publishes on any path, even one taken only when an
+external call fails, takes the link row on every delivery.
+
+Linking where you could continue costs something concrete: one request becomes
 two disconnected traces, and because log records take the trace id of the active
-span, the producer's trace shows producer logs and nothing else.
+span, the producer's trace shows producer logs and nothing else. Linking at every
+consumer that can publish onward is what keeps each trace to at most one message
+hop, however long the pipeline grows; the flow-level correlation id below joins
+the hops.
 
 Prefer new-root-plus-link when the causing span has already ended. Re-parenting
 onto a finished span reopens it and stretches its duration across the entire gap.
@@ -320,6 +327,12 @@ you also need —
 Carry a flow-level id in **baggage** and stamp it onto every span as an attribute.
 It stays constant whichever shape each hop chose, so one query spans continued and
 linked chains alike.
+
+Every consumer carries the id across its hop itself, on both shapes: grafting
+copies only the remote span context, and a link holds nothing but a span context.
+Read the id from the extracted context's baggage and set it as the baggage of the
+context the handler runs in, so injecting from that context sends it to the next
+hop.
 
 Filter baggage to that key only. Baggage goes in plaintext headers to every
 downstream service; a permissive filter is an exfiltration path.
