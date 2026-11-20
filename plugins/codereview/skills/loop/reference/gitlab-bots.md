@@ -57,9 +57,9 @@ bot.
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
 | `coderabbit` | Its `CodeRabbit` commit status on the head commit (query below) is `success`. `pending` ("Review queued", "Review in progress") is still working. A paused or skipped review ("Review paused", "Review skipped") is a STOP: report it, because only a person resumes it. With no `CodeRabbit` status on the head commit at all, use the `generic` rule. | Yes, on its next review. | None — it reviews every push. |
-| `greptile` | Its newest summary note names the head commit as the last one reviewed (the footer's last-reviewed commit; compare its short SHA with the start of `git rev-parse HEAD`). Without a summary note, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when no review arrives within 15 minutes of the push: Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
-| `duo` | The `generic` rule; GitLab Duo's Code Review Flow also sets its reviewer state to `approved` (nothing found) or `requested_changes`. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when no review arrives within 15 minutes of the push. |
-| `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. With nothing newer within 15 minutes of the push, it counts as finished: a bot with nothing new to say may post nothing. | Unknown — step 3 handles it. | None. |
+| `greptile` | Its newest summary note names the head commit as the last one reviewed (the footer's last-reviewed commit; compare its short SHA with the start of `git rev-parse HEAD`). Without a summary note, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
+| `duo` | The `generic` rule, with its re-trigger posted before silence can finish it; GitLab Duo's Code Review Flow also sets its reviewer state to `approved` (nothing found) or `requested_changes`. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
+| `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
 
 The push is when the head commit reached the MR, by GitLab's clock: the
 `created_at` of the MR diff version whose `head_commit_sha` is that commit.
@@ -83,8 +83,8 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/merge_reques
 It prints seconds since the epoch. When the head is in more than one version,
 as after a force-push back to an earlier commit, the newest counts. It prints nothing until
 GitLab has recorded the head on the MR; read it again on the next check. Read
-it again whenever the MR's `sha` changes. The 15 minutes in the table count
-from it, and it is when the commit reached the MR for step 1's deadline.
+it again whenever the MR's `sha` changes. Every "15 minutes after the push"
+counts from it, and it is when the commit reached the MR for step 1's deadline.
 
 The `coderabbit` status, with the head commit's full SHA:
 
@@ -113,14 +113,37 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/merge_reques
 
 It prints seconds since the epoch, to compare with the push time above. A self-managed instance can report times in its own zone (`…+01:00`); `epoch`, in this query and the push-time one, reads either form. Depending on its version, `glab --paginate` prints one array or one per page; `jq -s` reads either.
 
-A re-trigger is posted at most once per cycle, for one bot, and only the exact
-text in the table:
+## Re-triggers
+
+Greptile's and GitLab Duo's adapters have a re-trigger, and it goes out before
+silence can finish the bot. At the first check 15 minutes or more after the
+push, post a bot's re-trigger when all of these hold:
+
+- its adapter has one, and the bot has not had it this cycle
+- it has not finished by its adapter's rule
+- it has started no discussion since the push: the `generic` query prints
+  nothing newer than the push
+
+Post exactly the text in its table row as a new MR note, here Greptile's:
 
 ```bash
 glab api --hostname <host> --method POST "projects/<target_project_id>/merge_requests/<iid>/notes" -f body='@greptileai'
 ```
 
-Then wait up to another 15 minutes before going on to step 2.
+Then keep checking the bot by its adapter's rule, as step 1 does for every
+bot. Silence finishes a bot on the `generic` rule only once it has had its
+re-trigger or has none:
+
+- with no re-trigger, when nothing newer than the push has come from it 15
+  minutes after the push
+- once re-triggered, when nothing newer than the push has come from it 15
+  minutes after the re-trigger, or at step 1's 30-minute deadline if that comes
+  first
+
+A Greptile summary note that names an older commit keeps Greptile off the
+`generic` rule, so silence never finishes it and step 1's deadline decides.
+Each bot gets at most one re-trigger per cycle, and the loop posts nothing else
+to a bot.
 
 ## What the loop never sends a bot
 
