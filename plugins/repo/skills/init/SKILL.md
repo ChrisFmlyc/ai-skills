@@ -63,25 +63,10 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 3. **User types a description** (free text, not a valid slug) → propose a slug from it using the same normalisation rules. Show the proposal and confirm before running.
 4. **User pastes a URL** (starts with `https://`, `git@`, or `ssh://`; a plain `http://` URL also lands here and is refused at step 1) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
    1. Accept the URL only if the whole of it matches `^(https://|ssh://|git@)[A-Za-z0-9._~:/@%+-]+$`. That covers every ordinary remote URL and rules out whitespace, newlines, quotes, `$`, `;` and anything else a shell would act on. If it does not match, show it back, say which character is the problem, and ask again. An `http://` URL fails on purpose: plain HTTP sends the code and any credentials unencrypted, so ask for the `https://` or SSH form instead.
-   2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then list every URL git will push to. `git push` sends to each of them, and the user's git config can rewrite the URL (`url.<base>.insteadOf`, `pushInsteadOf`) or add more (`remote.origin.pushurl`, `remote.origin.url`):
+   2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then push `main` as § Push `main` describes:
       ```bash
       git remote add -- origin '<url>'
-      git remote get-url --push --all origin
       ```
-   3. If any URL it printed starts with `http://`, in any letter case, push nothing: run `git remote remove origin`, tell the user which URL is plain HTTP, that it would send the code and any credentials unencrypted, and that nothing was pushed, and stop.
-   4. Ask: *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
-   5. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch, with redirects turned off so a server cannot send the push on to a URL the user has not confirmed, with git limited to HTTPS and SSH, and with `--porcelain` so git reports what happened to `main` at each URL. `GIT_ALLOW_PROTOCOL` overrides git config, `-c` included, so the push sets it to `https:ssh` as well as turning plain HTTP off:
-      ```bash
-      GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false push --porcelain -u origin refs/heads/main:refs/heads/main
-      ```
-      After every push, whatever git's exit code, read the result as follows. Git pushes to the URLs in the order it listed them. For each URL it reaches, it prints `To <url>` and then a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary. An error git cannot get past ends the push at the URL it was on, so that URL and every one after it have no `To <url>` line. Sort every URL git listed into one of three groups:
-      - **Has `main`**: the flag is `*`, `=` or a space.
-      - **Did not get `main`**: the flag is `!` with any summary other than `[remote failure]`, and the summary says why; or the URL has no `To <url>` line: git sent it nothing, and either stopped on it with the error it printed or never reached it.
-      - **Uncertain**: the flag is `!` with the summary `[remote failure]`, which means the remote never confirmed the update, not that it refused it; or a `To <url>` line with no status line for `main` after it. For a created repo, § Push to the created repo asks the host whether it has `main`.
-
-      Tell the user which URLs have `main`, naming only the first group, or that no URL has `main` when that group is empty; then list the URLs that did not get `main`, each with git's summary or error, and the uncertain URLs, as separate groups. When every URL has `main`, the § Exit state summary is the whole report.
-      If git stopped because a server redirected the push (`fatal: unable to access '<url>/': The requested URL returned error: 301`, or another `3xx` code), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Also run `git remote remove origin` and tell the user which URL git refused and why. For a redirect, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL; otherwise stop.
-   Done — print the one-line summary from § Exit state.
 
 ## Cases 1–3: create on GitHub
 
@@ -92,8 +77,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    gh repo create <slug> --source=. --private --remote=origin
    ```
    (Swap `--private` for `--public` if the user picked public.) This creates the GitHub repo and adds it as `origin`; `git config --get remote.origin.url` prints the URL it added.
-4. Push `main` to that URL as § Push to the created repo describes.
-5. Print the URL: `gh repo view --json url -q .url`, with where `main` went when § Push to the created repo calls for it.
+4. Push `main` as § Push `main` describes. The repo's URL is what `gh repo view --json url -q .url` prints.
 
 ## Create on GitLab
 
@@ -104,40 +88,34 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    ```bash
    glab api --hostname <host> --method POST projects \
      -f name='<slug>' -f path='<slug>' -f visibility='<visibility>' -f default_branch=main \
-     | jq -r '.id, .web_url, .ssh_url_to_repo, .http_url_to_repo'
+     | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
    ```
    A 400 naming the path means the project already exists; ask for another slug.
-5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push `main` to that URL as § Push to the created repo describes.
-6. Print the `web_url`, with where `main` went when § Push to the created repo calls for it.
+5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push `main` as § Push `main` describes. The repo's URL is the `web_url`.
 
-## Push to the created repo
+## Push `main`
 
-The question offered creating the repo and pushing `main` together, so the user's yes covers a push to the URL `origin` was added with. `git push` sends to every push URL `origin` has, and the user's git config can rewrite the URL (`url.<base>.insteadOf`, `pushInsteadOf`) or add more (`remote.origin.pushurl`, `remote.origin.url`), so list every URL git will push to first:
+`git push` sends to every push URL `origin` has, and the user's git config can rewrite the URL `origin` was added with (`url.<base>.insteadOf`, `pushInsteadOf`) or add more (`remote.origin.pushurl`, a global `remote.origin.url`). `/repo:init` pushes to one URL it has checked. Where a step below says **stop without pushing**, run `git remote remove origin`, tell the user nothing was pushed (for a created repo, that the repo at its URL was created and is empty), and stop; the user can push `main` by hand.
 
-```bash
-git remote get-url --push --all origin
-```
-
-If any URL it prints starts with `http://`, in any letter case, push nothing: run `git remote remove origin`, tell the user which URL is plain HTTP, that it would send the code and any credentials unencrypted, and that the new repo was created but nothing was pushed to it, and stop.
-
-If it prints exactly one URL and that is the URL `origin` was added with, the user's yes already covers the push. Otherwise ask *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
-
-Then push with case 4's refspec and `--porcelain`, with redirects turned off and git limited to HTTPS and SSH as case 4 describes:
-
-```bash
-GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false push --porcelain -u origin refs/heads/main:refs/heads/main
-```
-
-Read and report the result as case 4 describes, whatever git's exit code. If git stopped on a redirect or on a URL that uses neither HTTPS nor SSH, as case 4 describes, also run `git remote remove origin`, tell the user which URL git refused and why, and that the new repo was created, and stop.
-
-When git listed exactly the URL `origin` was added with and that URL has `main`, the created repo has `main` and the completion output stands as written. Otherwise ask the host's API, which git's URL rewriting does not touch, whether the created repo has `main`: a rewritten URL can still reach the created repo by another address, and an uncertain URL may have reached it.
-
-```bash
-gh api repos/<owner>/<slug>/branches/main --silent
-glab api --hostname <host> projects/<id>/repository/branches/main
-```
-
-Run the line for the host the repo was created on. On GitHub, `<owner>` is the account `gh repo create` created the repo under (`gh api user --jq .login`); on GitLab, `<id>` is the `id` the create step printed. Success means the created repo has `main`, a 404 means it has none, and any other failure means it was not checked. Wherever the completion output prints the created repo's URL, also name the URLs that have `main`, as case 4 sorts them, and say what the host reported.
+1. List the URLs git will push to:
+   ```bash
+   git remote get-url --push --all origin
+   ```
+   Go on when it prints exactly one URL, `<push-url>`, that matches case 4's step 1 pattern and, for a created repo, is the URL `origin` was added with. The pattern keeps `<push-url>` safe inside the single-quoted config key below and refuses plain `http://`, which would send the code and any credentials unencrypted. When git prints anything else, name each URL it printed and the condition it fails, and stop without pushing. A URL other than the one `origin` was added with comes from the git config named above.
+2. For a pasted URL, ask: *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question. For a created repo, the remote question offered creating the repo and pushing `main` together, so the user's yes covers this push.
+3. Push:
+   ```bash
+   GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false -c 'http.<push-url>.followRedirects=false' push --porcelain -u origin refs/heads/main:refs/heads/main
+   ```
+   - `GIT_ALLOW_PROTOCOL=https:ssh` and `protocol.http.allow=never` limit git to HTTPS and SSH. The environment variable overrides git config, `-c` included, so the push sets both.
+   - The `followRedirects` settings stop a server sending the push on to a URL the user has not confirmed. Git applies the `http.<url>.*` setting that matches the push URL most closely, ahead of any `http.*` setting, and on a tie the command line's, so the setting scoped to the whole of `<push-url>` overrides any redirect setting in the user's git config.
+   - The refspec names both ends, so a `remote.origin.push` rule cannot send `main` to a different branch.
+   - `--porcelain` makes git print a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary.
+4. Whatever git's exit code, read the outcome for `<push-url>`:
+   - **Has the local commit**: the flag is `*` or a space (git sent it), or `=` (the URL already had it).
+   - **Did not receive the local commit**: the flag is `!` with any summary but `[remote failure]`, and the summary says why; `[rejected] (fetch first)` or `(non-fast-forward)` means the URL holds a different `main`. Or there is no status line and git's error is `The requested URL returned error: 3xx`: git refuses a redirect before it sends anything.
+   - **Uncertain**: every other result. `!` with `[remote failure]` means the remote never confirmed the update. No status line with any other error means git may have stopped after the remote accepted `main` but before it printed the result.
+5. When git refused a redirect, tell the user `<push-url>` redirects. On a pasted URL, run `git remote remove origin`, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL; on a created repo, stop without pushing. Otherwise print the summary from § Exit state.
 
 ## Forbidden in this skill
 
@@ -146,18 +124,16 @@ Run the line for the host the repo was created on. On GitHub, `<owner>` is the a
 - Any form of `--force` / `-f`. Force-pushing a brand-new `main` is never warranted.
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
 - Running `gh repo create`, or creating a GitLab project, without an explicit yes from the user in their own words.
-- Pushing before the user has confirmed every push URL git lists — always for a pasted URL, and for a created repo unless git lists exactly the one URL `origin` was added with.
-- Pushing over plain HTTP or through a redirect: when any URL git lists starts with `http://`, or without the `GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false` prefix, which keeps the push to HTTPS and SSH and stops a server redirecting it to a URL the user has not confirmed, `http://` included. Plain HTTP sends the code and any credentials unencrypted, whether the user pasted that URL or their git config produced it.
+- Pushing anywhere but the one URL § Push `main` step 1 accepts, or to a pasted URL before the user has said yes to it.
+- Pushing without the full prefix `GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false -c 'http.<push-url>.followRedirects=false'`, which keeps the push to HTTPS and SSH and stops a server redirecting it to a URL the user has not confirmed.
 - `--no-verify`, `--no-gpg-sign`.
 
 ## Exit state
 
-Branch `main` exists locally with exactly one commit (`New repo initialisation`) and on every URL case 4's reading sorts into **Has `main`**. Print a one-line summary and stop:
+Branch `main` exists locally with exactly one commit (`New repo initialisation`). Print the line for the outcome § Push `main` read, with the repo's URL as `<url>`, and stop:
 
-> `main → origin/main, 1 commit, repo at <url>`
-
-That summary fits a push where git listed one URL and it has `main` — for a created repo, the URL `origin` was added with. Otherwise the summary names only the URLs that have `main`, or `no URL` when none does, and, for a created repo, what the host reported for it; the URLs that did not get `main` and the uncertain ones follow it as separate lists, as case 4 describes:
-
-> `main → <URLs that have main>, 1 commit; repo at <url> has main` (or `has no main`, or `not checked for main`)
+- Has the local commit: `main → origin/main, 1 commit, repo at <url>`
+- Did not receive the local commit: `main → <push-url> did not receive the local commit: <git's summary or error>; repo at <url>`
+- Uncertain: `main → <push-url> uncertain: <git's summary or error>; repo at <url>`
 
 Everything from here goes via a branch + PR.
