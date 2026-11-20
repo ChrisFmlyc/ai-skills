@@ -97,7 +97,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    ```bash
    glab api --hostname <host> --method POST projects \
      -f name='<slug>' -f path='<slug>' -f visibility='<visibility>' -f default_branch=main \
-     | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
+     | jq -r '.id, .web_url, .ssh_url_to_repo, .http_url_to_repo'
    ```
    A 400 naming the path means the project already exists; ask for another slug.
 5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push `main` to that URL as § Push to the created repo describes.
@@ -121,7 +121,14 @@ Then push with case 4's refspec:
 git push -u origin refs/heads/main:refs/heads/main
 ```
 
-When git listed exactly the URL `origin` was added with, `main` is on the created repo and the completion output stands as written. Otherwise `main` is on the URLs git listed, and on the created repo only if its URL is among them: wherever the completion output prints the created repo's URL, also name every URL that received `main` and say whether the created repo has it.
+When git listed exactly the URL `origin` was added with, `main` is on the created repo and the completion output stands as written. Otherwise `main` is on the URLs git listed, and a rewritten URL can still reach the created repo by another address, so ask the host's API, which git's URL rewriting does not touch, whether the created repo has `main`:
+
+```bash
+gh api repos/<owner>/<slug>/branches/main --silent
+glab api --hostname <host> projects/<id>/repository/branches/main
+```
+
+Run the line for the host the repo was created on. On GitHub, `<owner>` is the account `gh repo create` created the repo under (`gh api user --jq .login`); on GitLab, `<id>` is the `id` the create step printed. Success means the created repo has `main`, a 404 means it has none, and any other failure means it was not checked. Wherever the completion output prints the created repo's URL, also name every URL that received `main` and say what the host reported.
 
 ## Forbidden in this skill
 
@@ -140,8 +147,8 @@ Branch `main` exists locally with exactly one commit (`New repo initialisation`)
 
 > `main → origin/main, 1 commit, repo at <url>`
 
-For a created repo whose push URLs were not exactly its own URL, the summary names where `main` went and whether the created repo has it:
+For a created repo whose push URLs were not exactly its own URL, the summary names where `main` went and what the host reported for the created repo:
 
-> `main → <push-urls>, 1 commit; repo at <url> has main` (or `has no main`)
+> `main → <push-urls>, 1 commit; repo at <url> has main` (or `has no main`, or `not checked for main`)
 
 Everything from here goes via a branch + PR.
