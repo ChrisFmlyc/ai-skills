@@ -90,11 +90,11 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 
 1. The host is `gitlab.com` unless the user named another; it must match `^[A-Za-z0-9.-]+$`. A group, if named, must match `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`.
 2. Run `glab auth status --hostname <host>`. If it fails, stop and tell the user to run `glab auth login --hostname <host>` themselves.
-3. Ask for visibility: `private` (default), `internal` or `public`.
+3. Ask for visibility: `private` (default), `internal` or `public`. The answer is `<visibility>` in the next step.
 4. Create the project through the API, which pins the host. For a group, look up its ID first with `glab api --hostname <host> "namespaces/<group with each / as %2F>" | jq .id` and add `-F namespace_id=<id>`:
    ```bash
    glab api --hostname <host> --method POST projects \
-     -f name='<slug>' -f path='<slug>' -f visibility=private -f default_branch=main \
+     -f name='<slug>' -f path='<slug>' -f visibility='<visibility>' -f default_branch=main \
      | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
    ```
    A 400 naming the path means the project already exists; ask for another slug.
