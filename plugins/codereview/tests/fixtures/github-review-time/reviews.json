@@ -1,20 +1,30 @@
 [
   {
     "user": {
-      "login": "coderabbitai[bot]"
+      "login": "coderabbitai[bot]",
+      "type": "Bot"
     },
-    "submitted_at": "2025-11-20T09:00:00Z"
+    "commit_id": "old999"
   },
   {
     "user": {
-      "login": "alice"
+      "login": "alice",
+      "type": "User"
     },
-    "submitted_at": "2025-11-20T09:30:00Z"
+    "commit_id": "abc123"
   },
   {
     "user": {
-      "login": "coderabbitai[bot]"
+      "login": "greptile-apps[bot]",
+      "type": "Bot"
     },
-    "submitted_at": "2025-11-20T10:00:00Z"
+    "commit_id": "abc123"
+  },
+  {
+    "user": {
+      "login": "coderabbitai[bot]",
+      "type": "Bot"
+    },
+    "commit_id": "abc123"
   }
 ]

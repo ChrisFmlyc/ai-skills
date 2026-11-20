@@ -462,7 +462,7 @@ Take this path when you determine a finding should not be fixed: either because 
 >
 > ```
 > # 1. find your thread
-> gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:1){nodes{databaseId body author{login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
+> gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:10){nodes{databaseId body author{__typename login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
 >
 > # 2. post your reason
 > gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>'
@@ -488,7 +488,7 @@ Take this path when you determine a finding should not be fixed: either because 
 >
 > Yours is the thread whose `path` matches your file, or the path on your packet's `Renamed from:` line if it has one, and whose first comment holds your finding's opening sentence.
 >
-> - Only touch threads that a review bot opened and no person has replied in, apart from `(ai-skills:…)` replies — on GitHub, check `author.login` on every comment; on GitLab, the thread's `by` must be `"bot"`. Never a person's, and never one a person has joined. With no bot IDs in your packet, touch no thread on GitLab: return `no-thread`.
+> - Only touch threads that a review bot opened and no person has replied in, apart from `(ai-skills:…)` replies. On GitHub a bot is an author whose `author.__typename` is `Bot` — GraphQL drops the `[bot]` suffix from a bot's login, so go by the type, not the name — and every comment in the thread must be a `Bot`'s or start with `(ai-skills:`. On GitLab the thread's `by` must be `"bot"`. Never a person's, and never one a person has joined. With no bot IDs in your packet, touch no thread on GitLab: return `no-thread`.
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
 > - Always comment before resolving.
 > - Start every comment you post with `(ai-skills:fix)`.

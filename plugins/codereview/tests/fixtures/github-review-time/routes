@@ -1,2 +1,3 @@
-^git show -s --format=%ct HEAD$	head.txt
-^gh api repos/\{owner\}/\{repo\}/pulls/12/reviews 	reviews.json
+^git rev-parse HEAD$	head.txt
+^gh pr view 12 --json headRefOid --jq 	pr.json
+^gh api --paginate repos/\{owner\}/\{repo\}/pulls/12/reviews 	reviews.json
