@@ -79,7 +79,9 @@ the notice's `noted` with when the run or status was set, the time the
 GitLab. A notice written no earlier than the run or status was set means
 CodeRabbit stopped after it started, so the notice's kind decides as the
 rules below say; a working run or status set after the notice means it has
-started again, so it is still working and gets no request.
+started again, so it is still working and gets no request. A queued run the
+query prints with an empty time has not started, so a notice about your
+latest commit decides over it.
 
 A rate limit outweighs a pause, skip or failure. When one of the bot's
 signals about your latest commit says it hit a rate limit and another says it
@@ -148,7 +150,9 @@ conclusion, title and time, or, when the commit has no CodeRabbit check run,
 its newest commit status's state, an empty field, its description and time.
 It prints nothing when the commit has neither. The time is when CodeRabbit
 last set the report, in seconds since the epoch: a run's `completed_at`, or
-its `started_at` until it completes, and a status's `updated_at`.
+its `started_at` until it completes, and a status's `updated_at`. A run
+CodeRabbit has queued but not yet started has neither, and the query prints
+its time empty.
 
 <!-- snippet-test: coderabbit-check -->
 ```bash
@@ -160,7 +164,7 @@ epoch='def epoch: capture("^(?<t>[0-9-]+T[0-9:]+)(\\.[0-9]+)?(?<z>Z|[+-][0-9]{2}
 run=$(gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?check_name=CodeRabbit" \
   | jq -r "$epoch"'
       [.check_runs[] | select(.app.slug == "coderabbitai")] | max_by(.id) // empty
-      | [.status, (.conclusion // ""), .output.title, (.completed_at // .started_at | epoch)] | @tsv') || exit
+      | [.status, (.conclusion // ""), .output.title, (.completed_at // .started_at | if . then epoch else "" end)] | @tsv') || exit
 if [ -n "$run" ]; then
   printf '%s\n' "$run"
 else
