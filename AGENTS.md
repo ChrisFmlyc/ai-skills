@@ -118,7 +118,7 @@ Every route except an online marketplace install works from a clone of this repo
 git clone https://github.com/ChrisFmlyc/ai-skills.git "$HOME/code/ai-skills"
 ```
 
-`<clone>` below stands for the clone's absolute path, such as `$HOME/code/ai-skills`.
+`<clone>` below stands for the clone's absolute path written out in full, such as `/home/you/code/ai-skills`: the `/plugin` command and the SDK options receive it with no shell to expand `$HOME` or `~`.
 
 ### Claude Code (CLI)
 
@@ -140,17 +140,19 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
-This is a single-skill route. Give the human these commands to build the ZIP for each skill from their clone; they read the plugin-install list from the clone's `AGENTS.md` and stop for every skill on it:
+This is a single-skill route. Give the human these commands to build the ZIP for each skill from their clone. They read the plugin-install list from the clone's `AGENTS.md` and build the ZIP only for a skill the list leaves out; they stop for a skill on the list, and for any skill when the list cannot be read:
 
 ```bash
 cd "<clone>/plugins/<plugin>/skills" &&
   rm -f "/tmp/<skill>.zip" &&
-  if grep -q '^ *| `<plugin>/<skill>` |' "<clone>/AGENTS.md"; then
-    echo "<skill> needs a plugin install: install the <plugin> plugin instead" >&2
-    false
-  else
-    zip -r "/tmp/<skill>.zip" "<skill>"
-  fi
+  { grep -q '^ *| `<plugin>/<skill>` |' "<clone>/AGENTS.md"; listed=$?; } &&
+  case $listed in
+    0) echo "<skill> needs a plugin install: install the <plugin> plugin instead" >&2
+       false ;;
+    1) zip -r "/tmp/<skill>.zip" "<skill>" ;;
+    *) echo "cannot read the plugin-install list in <clone>/AGENTS.md: no ZIP built" >&2
+       false ;;
+  esac
 ```
 
 Then tell them to upload `/tmp/<skill>.zip` via the Skills UI. Do not attempt to upload it yourself.
