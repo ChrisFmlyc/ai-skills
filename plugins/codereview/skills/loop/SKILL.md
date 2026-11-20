@@ -83,15 +83,15 @@ Each review line holds a bot's login and the commit that review covers. A review
 
 CodeRabbit can finish a commit without posting a review, so each time you run the three commands, also run [`reference/paused-reviews.md`](reference/paused-reviews.md) § The `coderabbit-check` query on your latest commit. The bots to wait for are the logins the review command prints, and CodeRabbit, as `coderabbitai[bot]`, whenever that query prints a report on your latest commit. Nothing else puts a bot on the list, so a reviewer that is not installed on the repo cannot hold the loop up. A CodeRabbit report that [`reference/paused-reviews.md`](reference/paused-reviews.md) § Reading a bot's signals reads as finished counts as its review of that commit.
 
-Each bot has a deadline for your latest commit:
+Your latest commit has a deadline: 30 minutes from when the commit reached the PR, or from when you began polling, if that is later. On GitHub the commit reached the PR at the first check that showed it at the PR's head, as [`reference/paused-reviews.md`](reference/paused-reviews.md) § Reading a bot's signals sets out. Each listed bot has its own deadline for the commit:
 
 - a bot the loop has asked, or is due to ask, for a review of the commit under [`reference/paused-reviews.md`](reference/paused-reviews.md) § What the loop does: 30 minutes from that request
-- any other bot: 30 minutes from when the commit reached the PR, or from when you began polling, if that is later. On GitHub the commit reached the PR at the first check that showed it at the PR's head, as [`reference/paused-reviews.md`](reference/paused-reviews.md) § Reading a bot's signals sets out.
+- any other bot: the commit's deadline
 
 Each time you run the three commands, find the case of every bot still pending in [`reference/paused-reviews.md`](reference/paused-reviews.md) § What the loop does and post any review request that is due, then take the first of these that holds:
 
 - **At least one bot is listed, and every one has reviewed the commit.** Go to step 2.
-- **A bot still pending has a deadline that has not passed.** Say `waiting for review on PR #n` and name the bots still pending, wait 60 to 90 seconds, then run all three commands again. Someone else can push to the PR while you wait, so check the PR head every time, not only the reviews.
+- **No bot is listed and the commit's deadline has not passed, or a bot still pending has a deadline that has not passed.** Say `waiting for review on PR #n` and name any bots still pending, wait 60 to 90 seconds, then run all three commands again. Someone else can push to the PR while you wait, so check the PR head every time, not only the reviews.
 - **At least one bot has reviewed the commit.** Raise a WARNING naming the rest — `<logins> have not reviewed <commit> after 30 minutes; continuing without them` — and go to step 2.
 - **No bot has reviewed the commit**, whether none is listed or they reviewed only earlier commits. STOP and raise an ERROR — `no review bot has reviewed <commit> on PR #n after 30 minutes` — so a person can check the repo's review bots.
 
