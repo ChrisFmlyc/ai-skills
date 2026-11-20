@@ -102,7 +102,7 @@ If you cannot determine the platform, ask the human.
 
 Claude Code, Codex and the Claude Agent SDK install a plugin whole: its skills, hooks and every other file go on disk together, and Claude Code and the SDK name its skills `/<plugin>:<skill>`. Claude Desktop and Cursor install skill folders one at a time, and a skill installed as its own folder carries no plugin name: it runs as `/<skill>`. These two single-skill routes follow the plugin-install rule.
 
-**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, or calls another skill by its plugin-qualified name `/<plugin>:<skill>` or follows one of that skill's files, needs a plugin install: only a plugin install puts the plugin's other files on disk and gives its skills those names. This list holds every such skill, and a single-skill route takes every skill it leaves out. The Claude Desktop commands read the list, so the change that brings a skill under this rule adds its row:
+**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, or calls another skill by its plugin-qualified name `/<plugin>:<skill>` or follows one of that skill's files, needs a plugin install: only a plugin install puts the plugin's other files on disk and gives its skills those names. This list holds every such skill, and a single-skill route takes every skill it leaves out. The Claude Desktop commands find the list by its header row and read its skill rows, so the header row stays as written and the change that brings a skill under this rule adds its row:
 
 | Skill | Why it needs a plugin install |
 |-------|-------------------------------|
@@ -140,16 +140,19 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
-This is a single-skill route. Give the human these commands to build the ZIP for each skill from their clone. They read the plugin-install list from the clone's `AGENTS.md` and build the ZIP only for a skill the list leaves out; they stop for a skill on the list, and for any skill when the list cannot be read:
+This is a single-skill route. Give the human these commands to build the ZIP for each skill from their clone, brought up to date with `git -C "<clone>" pull`. They read the plugin-install list from the clone's `AGENTS.md` and build the ZIP only for a skill the list leaves out; they stop for a skill on the list, and for any skill when the list is missing or cannot be read:
 
 ```bash
 cd "<clone>/plugins/<plugin>/skills" &&
   rm -f "/tmp/<skill>.zip" &&
+  { grep -q '^ *| Skill | Why it needs a plugin install |' "<clone>/AGENTS.md"; has_list=$?; } &&
   { grep -q '^ *| `<plugin>/<skill>` |' "<clone>/AGENTS.md"; listed=$?; } &&
-  case $listed in
-    0) echo "<skill> needs a plugin install: install the <plugin> plugin instead" >&2
-       false ;;
-    1) zip -r "/tmp/<skill>.zip" "<skill>" ;;
+  case $has_list$listed in
+    00) echo "<skill> needs a plugin install: install the <plugin> plugin instead" >&2
+        false ;;
+    01) zip -r "/tmp/<skill>.zip" "<skill>" ;;
+    1?) echo "no plugin-install list in <clone>/AGENTS.md: update the clone with git -C \"<clone>\" pull, then run this again" >&2
+        false ;;
     *) echo "cannot read the plugin-install list in <clone>/AGENTS.md: no ZIP built" >&2
        false ;;
   esac
