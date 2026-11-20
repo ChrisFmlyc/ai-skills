@@ -81,9 +81,9 @@ A bot reviews only commits GitHub has. If the first two commands print different
 
 Each review line holds a bot's login and the commit that review covers. A review counts for your latest commit only when its `commit_id` is that commit: a review of an earlier push can arrive after you made it. Go by `user.type`, never by a login you expect: the bots on a PR vary by repo.
 
-The bots to wait for are the logins this prints. A bot that has never reviewed this PR is not on the list, so a reviewer that is not installed on the repo cannot hold the loop up.
+The bots to wait for are the logins this prints, and CodeRabbit whenever it has a check run on your latest commit. Nothing else puts a bot on the list, so a reviewer that is not installed on the repo cannot hold the loop up.
 
-CodeRabbit can finish a commit without posting a review when it has nothing new to say, so its `CodeRabbit` check run on your latest commit reading "Finished" or "No files to review" also counts as its review of that commit. [`reference/paused-reviews.md`](reference/paused-reviews.md) § The `coderabbit-check` query reads it.
+CodeRabbit can finish a commit without posting a review when it has nothing new to say, so it may have no review on the PR at all. Each time you run the three commands, also run [`reference/paused-reviews.md`](reference/paused-reviews.md) § The `coderabbit-check` query on your latest commit. When it prints a run, CodeRabbit is on the list as `coderabbitai[bot]`, whether or not it has posted a review, and a run reading "Finished" or "No files to review" counts as its review of that commit.
 
 The wait for a commit has one deadline: 30 minutes from when the commit reached the PR, or from when you began polling, if that is later. Each time you run the three commands, take the first of these that holds:
 
