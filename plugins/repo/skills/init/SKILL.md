@@ -74,9 +74,14 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
       ```bash
       GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false push --porcelain -u origin refs/heads/main:refs/heads/main
       ```
-      For each URL it reached, git prints `To <url>` and then a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary. A flag of `*`, `=` or a space means that URL has `main`; `!` means it refused `main`, and the summary says why. A `To <url>` line with no status line for `main` after it leaves that URL uncertain.
-      If git refuses the push because a server redirected it (`fatal: unable to access '<url>/': The requested URL returned error: 301`, or another `3xx` code), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, then list separately the URLs whose status line shows they have `main`, those that refused it, and those left uncertain, saying no URL has `main` when none does. For a redirect, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL; otherwise stop.
-   Done — print the push URLs and a one-line summary.
+      After every push, whatever git's exit code, read the result as follows. Git pushes to the URLs in the order it listed them. For each URL it reaches, it prints `To <url>` and then a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary. An error git cannot get past ends the push at the URL it was on, so that URL and every one after it have no `To <url>` line. Sort every URL git listed into one of three groups:
+      - **Has `main`**: the flag is `*`, `=` or a space.
+      - **Did not get `main`**: the flag is `!`, and the summary says why; or the URL has no `To <url>` line: git sent it nothing, and either stopped on it with the error it printed or never reached it.
+      - **Uncertain**: a `To <url>` line with no status line for `main` after it.
+
+      Tell the user which URLs have `main`, naming only the first group, or that no URL has `main` when that group is empty; then list the URLs that did not get `main`, each with git's summary or error, and the uncertain URLs, as separate groups. When every URL has `main`, the § Exit state summary is the whole report.
+      If git stopped because a server redirected the push (`fatal: unable to access '<url>/': The requested URL returned error: 301`, or another `3xx` code), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Also run `git remote remove origin` and tell the user which URL git refused and why. For a redirect, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL; otherwise stop.
+   Done — print the one-line summary from § Exit state.
 
 ## Cases 1–3: create on GitHub
 
@@ -88,7 +93,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    ```
    (Swap `--private` for `--public` if the user picked public.) This creates the GitHub repo and adds it as `origin`; `git config --get remote.origin.url` prints the URL it added.
 4. Push `main` to that URL as § Push to the created repo describes.
-5. On success, print the URL: `gh repo view --json url -q .url`, with where `main` went when § Push to the created repo calls for it.
+5. Print the URL: `gh repo view --json url -q .url`, with where `main` went when § Push to the created repo calls for it.
 
 ## Create on GitLab
 
@@ -123,16 +128,16 @@ Then push with case 4's refspec and `--porcelain`, with redirects turned off and
 GIT_ALLOW_PROTOCOL=https:ssh git -c protocol.http.allow=never -c http.followRedirects=false push --porcelain -u origin refs/heads/main:refs/heads/main
 ```
 
-If git refuses the push because a server redirected it (`The requested URL returned error: 301`, or another `3xx` code), or because a URL git listed uses neither HTTPS nor SSH (`transport '<name>' not allowed`), git sent nothing to that URL. Run `git remote remove origin`, tell the user which URL git refused and why, and that the new repo was created, then read the status line under each `To <url>` as case 4 describes and list separately the URLs that have `main`, those that refused it, and those left uncertain, saying no URL has `main` when none does, and stop.
+Read and report the result as case 4 describes, whatever git's exit code. If git stopped on a redirect or on a URL that uses neither HTTPS nor SSH, as case 4 describes, also run `git remote remove origin`, tell the user which URL git refused and why, and that the new repo was created, and stop.
 
-When git listed exactly the URL `origin` was added with, `main` is on the created repo and the completion output stands as written. Otherwise `main` is on the URLs git listed, and a rewritten URL can still reach the created repo by another address, so ask the host's API, which git's URL rewriting does not touch, whether the created repo has `main`:
+When git listed exactly the URL `origin` was added with and that URL has `main`, the created repo has `main` and the completion output stands as written. Otherwise ask the host's API, which git's URL rewriting does not touch, whether the created repo has `main`: a rewritten URL can still reach the created repo by another address, and an uncertain URL may have reached it.
 
 ```bash
 gh api repos/<owner>/<slug>/branches/main --silent
 glab api --hostname <host> projects/<id>/repository/branches/main
 ```
 
-Run the line for the host the repo was created on. On GitHub, `<owner>` is the account `gh repo create` created the repo under (`gh api user --jq .login`); on GitLab, `<id>` is the `id` the create step printed. Success means the created repo has `main`, a 404 means it has none, and any other failure means it was not checked. Wherever the completion output prints the created repo's URL, also name every URL that received `main` and say what the host reported.
+Run the line for the host the repo was created on. On GitHub, `<owner>` is the account `gh repo create` created the repo under (`gh api user --jq .login`); on GitLab, `<id>` is the `id` the create step printed. Success means the created repo has `main`, a 404 means it has none, and any other failure means it was not checked. Wherever the completion output prints the created repo's URL, also name the URLs that have `main`, as case 4 sorts them, and say what the host reported.
 
 ## Forbidden in this skill
 
@@ -147,12 +152,12 @@ Run the line for the host the repo was created on. On GitHub, `<owner>` is the a
 
 ## Exit state
 
-Branch `main` exists locally with exactly one commit (`New repo initialisation`) and on every URL git pushed it to. Print a one-line summary and stop:
+Branch `main` exists locally with exactly one commit (`New repo initialisation`) and on every URL case 4's reading sorts into **Has `main`**. Print a one-line summary and stop:
 
 > `main → origin/main, 1 commit, repo at <url>`
 
-For a created repo whose push URLs were not exactly its own URL, the summary names where `main` went and what the host reported for the created repo:
+That summary fits a push where git listed one URL and it has `main` — for a created repo, the URL `origin` was added with. Otherwise the summary names only the URLs that have `main`, or `no URL` when none does, and, for a created repo, what the host reported for it; the URLs that did not get `main` and the uncertain ones follow it as separate lists, as case 4 describes:
 
-> `main → <push-urls>, 1 commit; repo at <url> has main` (or `has no main`, or `not checked for main`)
+> `main → <URLs that have main>, 1 commit; repo at <url> has main` (or `has no main`, or `not checked for main`)
 
 Everything from here goes via a branch + PR.
