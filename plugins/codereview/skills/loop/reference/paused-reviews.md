@@ -46,8 +46,9 @@ Some outcomes are a bot's answer, not a stall, and get no request:
   `CodeRabbit` check run on your latest commit reading "Finished" or "No files
   to review", or its `success` commit status reading "Review completed", "No
   reviewable changes" or "carried forward", counts as its review of that
-  commit in step 1. On GitLab its adapter in [`gitlab-bots.md`](gitlab-bots.md)
-  says when it has finished.
+  commit in step 1, from whichever push of the commit it came, as
+  [The `coderabbit-check` query](#the-coderabbit-check-query) says. On GitLab
+  its adapter in [`gitlab-bots.md`](gitlab-bots.md) says when it has finished.
 - **A draft.** The bots skip drafts by design. Marking the PR or MR ready is
   the user's call: STOP and raise an ERROR saying it is a draft.
 - **Too much to review, or ignored paths.** CodeRabbit's "Too many files to
@@ -62,9 +63,13 @@ Some outcomes are a bot's answer, not a stall, and get no request:
 
 At each check in step 1, for each bot that has not reviewed your latest
 commit, read its adapter's signals. A signal counts only when it is about your
-latest commit: a check run or status on that commit, or a comment or note the
-bot posted or edited after the commit reached the PR. On GitLab the commit
-reached the MR at the push time that [`gitlab-bots.md`](gitlab-bots.md) reads.
+latest commit: a comment or note the bot posted or edited after the commit
+reached the PR, or a check run or status on that commit. On GitHub that is
+every check run or status on the commit, from whichever push of it, as
+[The `coderabbit-check` query](#the-coderabbit-check-query) sets out. GitLab
+records when each head reached the MR, the push time that
+[`gitlab-bots.md`](gitlab-bots.md) reads, and there a status counts only when
+it was set no earlier than that.
 
 CodeRabbit's check run or status can say it is still working (a run `queued`
 or `in_progress`, a `pending` status) while a notice about your latest commit
@@ -86,10 +91,9 @@ leaves your commit unreviewed at the deadline.
    60 minutes after the bot said so, CodeRabbit's own advice when it gives no
    time.
 4. **Silent:** at the first check 15 minutes after the commit reached the PR,
-   a bot that has said nothing about this push, with no check run or status
-   set on the commit since it reached the PR and no comment or note since,
-   gets the command. A check run or status left from an earlier push of the
-   same commit says nothing about this one. On GitLab this is the adapter's
+   a bot that has said nothing about this push gets the command: no check run
+   or status that counts as about your latest commit, as above, and no comment
+   or note since the commit reached the PR. On GitLab this is the adapter's
    re-trigger in [`gitlab-bots.md`](gitlab-bots.md) § Re-triggers, the same
    request under its other name.
 
@@ -105,8 +109,9 @@ fails or hits a rate limit again after the request, send nothing more: when
 the 30 minutes are up, step 1's WARNING or ERROR names the pause or limit so a
 person sees why. Every other pending bot keeps step 1's deadline, a working
 one included: a CodeRabbit run that stays `queued` or `in_progress`, or a
-`pending` status set since the push, with no paused or rate-limit notice about your
-latest commit deciding otherwise, gets no request, and the deadline decides.
+`pending` status, about your latest commit, with no paused or rate-limit
+notice about that commit deciding otherwise, gets no request, and the
+deadline decides.
 
 Post the command as a new top-level comment holding exactly the text in the
 bot's row, here CodeRabbit's:
@@ -156,6 +161,20 @@ fi
 A check run counts only from the `coderabbitai` app, and a commit status only
 from CodeRabbit's own account, `coderabbitai[bot]`: anyone who can write to
 the repository can set a status named `CodeRabbit`.
+
+A check run or status belongs to the commit, not to the push. When a commit
+reaches the PR again, pushed anew or force-pushed back to, the query can print
+CodeRabbit's report from its earlier push, with no time to tell the two apart,
+so whatever it prints is about your latest commit. A run reading "Finished" or
+"No files to review", or a `success` status reading "Review completed", "No
+reviewable changes" or "carried forward", is CodeRabbit's review of the commit
+whenever it ran: it covered this same code, and CodeRabbit does not review a
+commit twice, so waiting for a newer one would only run to the deadline. Any
+other report is read as below and in [What the loop does](#what-the-loop-does),
+whichever push it came from. When one from the earlier push says CodeRabbit
+paused, skipped, failed or hit a rate limit, the one-off request it gets costs
+at most one incremental review, since each bot gets one request for each
+commit you push.
 
 A run still `queued` or `in_progress`, or a `pending` status, is working,
 unless a paused or rate-limit notice about your latest commit beside it
