@@ -270,6 +270,7 @@ why it works across languages.
 | Situation | Shape |
 |---|---|
 | First delivery, valid context present, one consumer, short chain (a handful of spans) | **Continue** — one trace end to end |
+| First delivery, valid context present, several consumers or a long chain | **New root + link** |
 | Redelivery / retry | **New root + link** — the original trace already closed |
 | Long human delay (email → click, days later) | **New root + link** |
 | Clock-driven work (timer, cron) | **Root, no link** — nothing caused it |
