@@ -342,7 +342,7 @@ One line. No table, and no breakdown per finding:
 - closing a thread for a finding `/codereview:fix` did not report as `fixed` or hand back as `no-thread`
 - closing a thread with no comment, or with a commit hash you have not checked
 - replying to, closing, or editing a review comment a **person** wrote
-- dismissing or re-requesting reviews to shut the coding agent up
+- dismissing or re-requesting reviews, or `@coderabbitai full review`: a full review is the user's call, and re-requesting CodeRabbit on GitHub starts one. A review the loop asks for is always the incremental one-off in [`reference/paused-reviews.md`](reference/paused-reviews.md)
 - a bot command that resolves, approves, pauses, resumes, ignores or writes code, such as `@coderabbitai pause`, `resume`, `ignore`, `resolve`, `approve` or `fix`, GitLab's `/approve`, or an emoji reaction on a bot's note — you want a clean review, not a silenced reviewer. The only command the loop posts to a bot is its one-off review request, once per commit, for a bot that has not reviewed it ([`reference/paused-reviews.md`](reference/paused-reviews.md)), which on GitLab is the adapter's re-trigger ([`reference/gitlab-bots.md`](reference/gitlab-bots.md) § Re-triggers). [`reference/gitlab-bots.md`](reference/gitlab-bots.md) § What the loop never sends a bot lists the rest, on both hosts.
 - marking a draft MR ready (`glab mr update --ready`)
 - `glab mr note`, which opens a new resolvable thread — replies go through `glab api` to the discussion

@@ -14,6 +14,13 @@ the latest commit with its one-off review command. A paused bot still answers
 a one-off request, so the loop never resumes its automatic reviews: that
 setting belongs to the user.
 
+The request is always incremental. `@coderabbitai review` reviews only the
+commits pushed since CodeRabbit's last review, keeping what the earlier
+reviews found. A full review of the whole PR is the user's to start, by hand
+or by telling you to: the loop never sends `@coderabbitai full review`, and
+never re-requests a bot as a reviewer on GitHub, which starts a full
+CodeRabbit review.
+
 ## Adapters
 
 On GitHub a bot is known by its login; on GitLab by its `kind` in the bot list
@@ -93,7 +100,7 @@ bot you asked and why: `asked coderabbitai[bot] for a review: paused`.
 
 The loop sends nothing else to change a bot's state: not `@coderabbitai
 resume`, which turns automatic reviews back on for every later push, not
-`pause`, `full review` or `ignore`, not a request that raises a bot's review
+`full review`, which is the user's call, not `pause` or `ignore`, not a request that raises a bot's review
 tier, such as Greptile's `review this at apex`, not Wiz Code's `#wiz
 remediate`, and nothing else on the list in [`gitlab-bots.md`](gitlab-bots.md)
 § What the loop never sends a bot, which holds on both hosts.
