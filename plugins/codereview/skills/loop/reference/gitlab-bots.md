@@ -61,6 +61,31 @@ bot.
 | `duo` | The `generic` rule; GitLab Duo's Code Review Flow also sets its reviewer state to `approved` (nothing found) or `requested_changes`. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when no review arrives within 15 minutes of the push. |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. With nothing newer within 15 minutes of the push, it counts as finished: a bot with nothing new to say may post nothing. | Unknown — step 3 handles it. | None. |
 
+The push is when the head commit reached the MR, by GitLab's clock: the
+`created_at` of the MR diff version whose `head_commit_sha` is that commit.
+GitLab adds a version each time the MR's head changes. A commit's own date
+records when it was committed, which can be long before the push, so a review
+of the previous head would look newer than it. With the head commit's full SHA:
+
+<!-- snippet-test: gitlab-head-push-time -->
+```bash
+set -o pipefail
+glab api --paginate --hostname <host> "projects/<target_project_id>/merge_requests/<iid>/versions" \
+  | jq -rs --arg head '<head-sha>' '
+      def epoch: capture("^(?<t>[0-9-]+T[0-9:]+)(\\.[0-9]+)?(?<z>Z|[+-][0-9]{2}:?[0-9]{2})$")
+        | (.t + "Z" | fromdateiso8601)
+          - (if .z == "Z" then 0
+             else (.z[0:1] + "1" | tonumber) * ((.z[1:3] | tonumber) * 3600 + (.z[-2:] | tonumber) * 60) end);
+      (if length == 0 then error("no response from glab") else add end)
+      | [.[] | select(.head_commit_sha == $head) | .created_at | epoch] | max // empty'
+```
+
+It prints seconds since the epoch. When the head is in more than one version,
+as after a force-push back to an earlier commit, the newest counts. It prints nothing until
+GitLab has recorded the head on the MR; read it again on the next check. Read
+it again whenever the MR's `sha` changes. The 15 minutes in the table count
+from it, and it is when the commit reached the MR for step 1's deadline.
+
 The `coderabbit` status, with the head commit's full SHA:
 
 <!-- snippet-test: coderabbit-status -->
@@ -86,7 +111,7 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/merge_reques
       | [.[] | .notes[0] | select(.author.id == $bot and (.system | not)) | .created_at | epoch] | max // empty'
 ```
 
-It prints seconds since the epoch, to compare with `git show -s --format=%ct HEAD`. A self-managed instance can report times in its own zone (`…+01:00`); `epoch` reads either form. Depending on its version, `glab --paginate` prints one array or one per page; `jq -s` reads either.
+It prints seconds since the epoch, to compare with the push time above. A self-managed instance can report times in its own zone (`…+01:00`); `epoch`, in this query and the push-time one, reads either form. Depending on its version, `glab --paginate` prints one array or one per page; `jq -s` reads either.
 
 A re-trigger is posted at most once per cycle, for one bot, and only the exact
 text in the table:

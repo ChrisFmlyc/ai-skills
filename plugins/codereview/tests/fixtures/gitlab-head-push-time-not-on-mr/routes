@@ -1,0 +1,1 @@
+^glab api (--paginate )?--hostname gitlab\.example\.com projects/42/merge_requests/7/versions$	versions.json
