@@ -54,7 +54,7 @@ Read the diff as well. You check every claim in the draft against it, so read th
 
 The target and the default branch belong to the repository the PR is opened in, and `remote` in the snippet is the git remote for that repository. It stays `origin` unless the PR goes from a fork into its upstream. The calling agent names that repository in its request, or as the `--repo` of the `gh pr create` or `glab mr create` it will run. When it names none and `git remote` lists more than one remote, `gh` and `glab` choose the repository themselves, and they prefer a remote named `upstream` to `origin`; `gh repo view --json url` or `glab repo view --output json` prints the one they will use. Set `remote` to the name `git remote -v` lists for that repository, such as `upstream`. If no remote points at it, tell the calling agent so and wait for it to name one.
 
-The snippet finds the default branch whether or not there is a target, because step 3 reads its history. It asks the remote first, because the remote's `HEAD` ref, such as `origin/HEAD`, is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to that ref, then to `gh` or `glab`. It then fetches the default branch and the target from the remote every time. A remote-tracking ref only moves when something fetches it, so one left behind by an older fetch gives a diff against commits the PR will not merge into; the fetch also creates the refs a single-branch clone lacks. When the fetch fails, as it does offline, the snippet uses the ref it already has. The fetch reads from the remote and leaves the working tree alone:
+The snippet finds the default branch whether or not there is a target, because step 3 reads its history. It asks the remote first, because the remote's `HEAD` ref, such as `origin/HEAD`, is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to that ref, then to `gh` or `glab`. It then fetches the default branch and the target from the remote every time. A remote-tracking ref only moves when something fetches it, so one left behind by an older fetch gives a diff against commits the PR will not merge into; the fetch also creates the refs a single-branch clone lacks. When the fetch fails, as it does offline, the snippet uses the ref it already has and prints a `WARNING:` line on stderr naming the branch and the remote. The fetch reads from the remote and leaves the working tree alone:
 
 ```bash
 target=""
@@ -64,11 +64,12 @@ default=$(git ls-remote --symref "$remote" HEAD 2>/dev/null | awk -v r="$remote/
   || git symbolic-ref --short "refs/remotes/$remote/HEAD" 2>/dev/null \
   || gh repo view "$url" --json defaultBranchRef -q "\"$remote/\" + .defaultBranchRef.name" 2>/dev/null \
   || glab repo view "$url" --output json 2>/dev/null | jq -r --arg r "$remote/" '.default_branch // empty | $r + .' 2>/dev/null)
-tracked() {  # refresh remote-tracking ref $1 from $remote and print it; keep the local ref when the fetch fails
+tracked() {  # refresh remote-tracking ref $1 from $remote and print it; keep the local ref, with a warning, when the fetch fails
   [ -n "$1" ] || return 1
-  git fetch --quiet "$remote" "+refs/heads/${1#"$remote/"}:refs/remotes/$1" 2>/dev/null \
-    || git rev-parse --verify --quiet "$1^{commit}" >/dev/null \
-    || return 1
+  if ! git fetch --quiet "$remote" "+refs/heads/${1#"$remote/"}:refs/remotes/$1" 2>/dev/null; then
+    git rev-parse --verify --quiet "$1^{commit}" >/dev/null || return 1
+    echo "WARNING: could not fetch ${1#"$remote/"} from $remote; using the local ref $1, which may be behind the remote" >&2
+  fi
   echo "$1"
 }
 default=$(tracked "$default")
@@ -78,6 +79,8 @@ echo "DEFAULT=$default"
 ```
 
 Call the two values it prints `BASE` and `DEFAULT`, for example `origin/develop` and `origin/main`, or `upstream/develop` and `upstream/main` for a PR from a fork; without a target they are the same. Read the diff with `git diff BASE...HEAD`. If `BASE` is empty, do not run the diff. Tell the calling agent which branch could not be found on `remote`, the target it named or the default branch, and ask which branch the PR merges into. Run the snippet again with `target` set to the answer.
+
+A `WARNING:` line names a branch the snippet could not refresh. Its ref holds what the last fetch brought, which may be behind the remote, and when that branch is `BASE` the diff, and every claim you check against it, may be against an old base. Carry on with it, and pass each warning to the calling agent word for word when you hand back in step 8.
 
 ## 3. Read the repo's own rules
 
@@ -195,7 +198,7 @@ If `/unslop` broke one of these, put that part back from your step 4 or 5 text. 
 
 ## 8. Hand it back
 
-Return the title and body to the calling agent, and say in one line what changed, for example `retitled to fix(repo): …, dropped 4 headings and a checklist; unslop rewrote 2 sentences`.
+Return the title and body to the calling agent, and say in one line what changed, for example `retitled to fix(repo): …, dropped 4 headings and a checklist; unslop rewrote 2 sentences`. Add any `WARNING:` line the step 2 snippet printed.
 
 Then stop. The calling agent opens the PR with your text.
 
