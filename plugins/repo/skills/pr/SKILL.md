@@ -52,12 +52,12 @@ If you were called without a title or body, there is nothing to rewrite. STOP an
 
 Read the diff as well. You check every claim in the draft against it, so read the diff the PR will merge: from the branch it merges into, its target, to `HEAD`. When the calling agent names the target, set `target` in the snippet below to that branch's name, such as `develop`. It names it in its request, or as the `--base` of the `gh pr create` or the `--target-branch` of the `glab mr create` it will run. Leave `target` empty when it names none; the PR then merges into the default branch.
 
-The snippet finds the default branch either way, because step 3 reads its history. `origin/HEAD` is not set in every clone, so it falls back to asking the remote. A single-branch clone lacks the remote-tracking refs of other branches, so when the ref for the default branch or the target is missing the snippet fetches it from `origin`. The fetch reads from the remote and leaves the working tree alone:
+The snippet finds the default branch either way, because step 3 reads its history. It asks the remote first, because `origin/HEAD` is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to `origin/HEAD`, then to `gh` or `glab`. A single-branch clone lacks the remote-tracking refs of other branches, so when the ref for the default branch or the target is missing the snippet fetches it from `origin`. The fetch reads from the remote and leaves the working tree alone:
 
 ```bash
 target=""
-default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
-  || git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "origin/", $2); print $2; found = 1; exit } END { exit !found }' \
+default=$(git ls-remote --symref origin HEAD 2>/dev/null | awk '$1 == "ref:" { sub("^refs/heads/", "origin/", $2); print $2; found = 1; exit } END { exit !found }' \
+  || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
   || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null \
   || glab repo view --output json 2>/dev/null | jq -r '.default_branch // empty | "origin/" + .' 2>/dev/null)
 tracked() {  # print remote-tracking ref $1, fetching it from origin when it is missing
