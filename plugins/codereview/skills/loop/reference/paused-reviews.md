@@ -66,10 +66,25 @@ commit, read its adapter's signals. A signal counts only when it is about your
 latest commit: a comment or note the bot posted or edited after the commit
 reached the PR, or a check run or status on that commit. On GitHub that is
 every check run or status on the commit, from whichever push of it, as
-[The `coderabbit-check` query](#the-coderabbit-check-query) sets out. GitLab
-records when each head reached the MR, the push time that
-[`gitlab-bots.md`](gitlab-bots.md) reads, and there a status counts only when
-it was set no earlier than that.
+[The `coderabbit-check` query](#the-coderabbit-check-query) sets out, and a
+notice written after the commit was made, as below. GitLab records when each
+head reached the MR, the push time that [`gitlab-bots.md`](gitlab-bots.md)
+reads, and there a status counts only when it was set no earlier than that.
+
+GitHub records no time at which a commit became the PR's head, so on GitHub
+you time it from your own checks. Step 1 reads the PR's head at every check,
+and a commit reached the PR at the first check that showed it there, or showed
+it again after a different head: write down `date +%s` at that check. For the
+head the PR has when the loop starts, that is the loop's first check; for a
+commit you push, it is the check straight after the push. That time starts
+rule 4's 15 minutes and step 1's 30-minute deadline, and rule 4 looks for a
+comment or note since then. A bot can write a paused or rate-limit notice
+before that check, as on a head the PR already had when the loop started, so
+a notice counts as about your latest commit when its `noted` is after the
+commit's committer date, `git log -1 --format=%ct <sha>`: a commit cannot
+reach the PR before it was made. A notice about the previous head written
+after that date counts too, and still holds for this push: a pause lasts until
+someone resumes the bot, and a rate limit's wait runs from the notice.
 
 CodeRabbit's check run or status can say it is still working (a run `queued`
 or `in_progress`, a `pending` status) while a notice about your latest commit
@@ -100,11 +115,11 @@ the limit is refused, and spends the bot's one request for that commit.
    status was set: the time the `coderabbit-check` query prints on GitHub, the
    status's `set_at` on GitLab.
 4. **Silent:** at the first check 15 minutes after the commit reached the PR,
-   a bot that has said nothing about this push gets the command: no check run
-   or status that counts as about your latest commit, as above, and no comment
-   or note since the commit reached the PR. On GitLab this is the adapter's
-   re-trigger in [`gitlab-bots.md`](gitlab-bots.md) § Re-triggers, the same
-   request under its other name.
+   a bot that has said nothing about this push gets the command: no check
+   run, status or notice that counts as about your latest commit, as above,
+   and no comment or note since the commit reached the PR. On GitLab this is
+   the adapter's re-trigger in [`gitlab-bots.md`](gitlab-bots.md)
+   § Re-triggers, the same request under its other name.
 
 A stated wait that ends more than 60 minutes after the bot said so is longer
 than the loop waits: post nothing, and let step 1's deadline decide, with its
@@ -268,9 +283,10 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/merge_reques
       | {kind, noted, until}'
 ```
 
-`noted` tells you whether the notice is about your latest commit: it must be
-after the commit reached the PR, or at or after the GitLab push time. For a
-`rate-limited` notice, `until` equal to `noted` means it gave no wait: use
-rule 3. The wait is read from the phrase after "wait" or "available in", as
-CodeRabbit words it in "Next included review available in 35 minutes" and,
-in older notices, "Please wait **8 minutes and 33 seconds**".
+`noted` tells you whether the notice is about your latest commit: on GitHub it
+must be after the commit's committer date, as
+[What the loop does](#what-the-loop-does) says, and on GitLab at or after the
+push time. For a `rate-limited` notice, `until` equal to `noted` means it gave
+no wait: use rule 3. The wait is read from the phrase after "wait" or
+"available in", as CodeRabbit words it in "Next included review available in
+35 minutes" and, in older notices, "Please wait **8 minutes and 33 seconds**".
