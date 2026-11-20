@@ -58,6 +58,17 @@ These rules are non-negotiable. If a request would violate one, stop and explain
 - Edits: bump `version` in the affected plugin's `plugin.json`.
 - Removals: delete the skill directory, bump the plugin version, and update both READMEs if the skill was listed.
 
+### Writing skills and agent docs
+
+Every file an agent reads is written green-field, as if fresh, so it carries its rules at the highest fidelity. That covers skills, their bundled resources, `AGENTS.md` and the READMEs.
+
+- State each rule once, in positive terms, as the correct behaviour, in the one place it belongs. Everywhere else, point to it.
+- When a rule is wrong, rewrite or delete that line. A wrong "always use a VPN" is removed, never answered by a second sentence that undoes, softens, overrides or excepts it.
+- Write the current behaviour only: no history of fixes ("now", "no longer", "previously") and no denial of something nothing asked for.
+- A condition that belongs to a rule sits inside that rule. Cases that differ read as one list or table.
+- When two passages disagree, settle which is right and keep only that one.
+- After an edit, re-read the whole file, and every file that restates the same contract, for these faults.
+
 ### When changing a GitHub or GitLab path
 
 `codereview` drives GitHub pull requests through `gh` and GitLab merge requests through `glab`, and the `repo` skills that touch a forge serve the same two hosts. A change to one host's flow — host detection, the guardrail checks, thread listing, reply and resolve, the wait for a review, the push — is weighed for the other host in the same PR. Make the matching change where the other host has that step. Where it has none, the PR description names the host and says why.
