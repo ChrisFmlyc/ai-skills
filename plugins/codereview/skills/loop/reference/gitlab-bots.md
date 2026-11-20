@@ -154,7 +154,9 @@ these phrases, ignoring case, and take the first case that holds:
   failed", "Review cancelled" or "Review rate limited", whatever the status,
   and `set_at` no earlier than the push time: not finished. GitLab has no
   skipped state, so CodeRabbit can report these as `success`. Ask for a
-  one-off review as [`paused-reviews.md`](paused-reviews.md) sets out.
+  one-off review as [`paused-reviews.md`](paused-reviews.md#what-the-loop-does)
+  sets out. For a rate limit the bot has written no notice about since the
+  push, that file's 60-minute wait counts from `set_at`.
 - `failed` or `canceled`, with any other description, and `set_at` no earlier
   than the push time: not finished. CodeRabbit stopped before it reviewed this
   push, so it gets the one-off review request

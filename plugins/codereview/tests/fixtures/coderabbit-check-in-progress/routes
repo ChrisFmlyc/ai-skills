@@ -1,1 +1,1 @@
-^gh api repos/\{owner\}/\{repo\}/commits/abc123/check-runs\?check_name=CodeRabbit --jq 	check-runs.json
+^gh api repos/\{owner\}/\{repo\}/commits/abc123/check-runs\?check_name=CodeRabbit$	check-runs.json

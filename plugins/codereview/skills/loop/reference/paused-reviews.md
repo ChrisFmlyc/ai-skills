@@ -73,15 +73,13 @@ it was set no earlier than that.
 
 CodeRabbit's check run or status can say it is still working (a run `queued`
 or `in_progress`, a `pending` status) while a notice about your latest commit
-says it paused or hit a rate limit. The newer of the two decides. On
-GitLab, compare the notice's `noted` with the status's `set_at`: a notice
-written no earlier than the status was set means CodeRabbit stopped after it
-started, so the notice's kind decides as the rules below say; a `pending`
-status set after the notice means it has started again, so it is still
-working and gets no request. On GitHub the `coderabbit-check` query gives the
-run or status no time, so the notice decides: asking a bot that is already
-working costs one incremental review, while waiting on one that has stopped
-leaves your commit unreviewed at the deadline.
+says it paused or hit a rate limit. The newer of the two decides: compare
+the notice's `noted` with when the run or status was set, the time the
+`coderabbit-check` query prints on GitHub and the status's `set_at` on
+GitLab. A notice written no earlier than the run or status was set means
+CodeRabbit stopped after it started, so the notice's kind decides as the
+rules below say; a working run or status set after the notice means it has
+started again, so it is still working and gets no request.
 
 A rate limit outweighs a pause, skip or failure. When one of the bot's
 signals about your latest commit says it hit a rate limit and another says it
@@ -95,7 +93,10 @@ the limit is refused, and spends the bot's one request for that commit.
    plus one minute.
 3. **Rate-limited, with no wait stated:** post the command at the first check
    60 minutes after the bot said so, CodeRabbit's own advice when it gives no
-   time.
+   time. The bot said so at a rate-limit notice's `noted` when one about your
+   latest commit exists, and otherwise when its rate-limited check run or
+   status was set: the time the `coderabbit-check` query prints on GitHub, the
+   status's `set_at` on GitLab.
 4. **Silent:** at the first check 15 minutes after the commit reached the PR,
    a bot that has said nothing about this push gets the command: no check run
    or status that counts as about your latest commit, as above, and no comment
@@ -143,24 +144,32 @@ On GitHub, CodeRabbit reports on a commit through a `CodeRabbit` check run,
 or through a `CodeRabbit` commit status when the repository sets
 `reviews.review_progress` to `false`. The query prints one line for
 CodeRabbit's newest report on a commit: its newest check run's status,
-conclusion and title, or, when the commit has no CodeRabbit check run, its
-newest commit status's state, an empty field and its description. It prints
-nothing when the commit has neither:
+conclusion, title and time, or, when the commit has no CodeRabbit check run,
+its newest commit status's state, an empty field, its description and time.
+It prints nothing when the commit has neither. The time is when CodeRabbit
+last set the report, in seconds since the epoch: a run's `completed_at`, or
+its `started_at` until it completes, and a status's `updated_at`.
 
 <!-- snippet-test: coderabbit-check -->
 ```bash
 set -o pipefail
+epoch='def epoch: capture("^(?<t>[0-9-]+T[0-9:]+)(\\.[0-9]+)?(?<z>Z|[+-][0-9]{2}:?[0-9]{2})$")
+  | (.t + "Z" | fromdateiso8601)
+    - (if .z == "Z" then 0
+       else (.z[0:1] + "1" | tonumber) * ((.z[1:3] | tonumber) * 3600 + (.z[-2:] | tonumber) * 60) end);'
 run=$(gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?check_name=CodeRabbit" \
-  --jq '[.check_runs[] | select(.app.slug == "coderabbitai")] | max_by(.id) // empty
-        | [.status, (.conclusion // ""), .output.title] | @tsv') || exit
+  | jq -r "$epoch"'
+      [.check_runs[] | select(.app.slug == "coderabbitai")] | max_by(.id) // empty
+      | [.status, (.conclusion // ""), .output.title, (.completed_at // .started_at | epoch)] | @tsv') || exit
 if [ -n "$run" ]; then
   printf '%s\n' "$run"
 else
   gh api --paginate "repos/{owner}/{repo}/commits/<sha>/statuses?per_page=100" \
-    | jq -rs '(if length == 0 then error("no response from gh") else add end)
+    | jq -rs "$epoch"'
+        (if length == 0 then error("no response from gh") else add end)
         | [.[] | select(.context == "CodeRabbit" and .creator.login == "coderabbitai[bot]")]
         | max_by(.id) // empty
-        | [.state, "", .description] | @tsv'
+        | [.state, "", .description, (.updated_at | epoch)] | @tsv'
 fi
 ```
 
@@ -170,8 +179,8 @@ the repository can set a status named `CodeRabbit`.
 
 A check run or status belongs to the commit, not to the push. When a commit
 reaches the PR again, pushed anew or force-pushed back to, the query can print
-CodeRabbit's report from its earlier push, with no time to tell the two apart,
-so whatever it prints is about your latest commit. A run reading "Finished" or
+CodeRabbit's report from its earlier push, and whatever it prints counts as
+about your latest commit. A run reading "Finished" or
 "No files to review", or a `success` status reading "Review completed", "No
 reviewable changes" or "carried forward", is CodeRabbit's review of the commit
 whenever it ran: it covered this same code, and CodeRabbit does not review a
