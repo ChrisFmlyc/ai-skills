@@ -4,7 +4,7 @@ Instructions for AI agents working with this repository.
 
 ## What this repo is
 
-`ai-skills` is a personal Claude Code plugin marketplace. It is the single source of truth for the human's skills across work and personal machines. Every plugin in `plugins/` installs whole in Claude Code and Codex, and its skills install one by one in Claude Desktop, the Claude Agent SDK and Cursor, subject to the single-skill rules in § Deployment.
+`ai-skills` is a personal Claude Code plugin marketplace. It is the single source of truth for the human's skills across work and personal machines. Every plugin in `plugins/` installs whole in Claude Code, Codex and the Claude Agent SDK, and its skills install one by one in Claude Desktop and Cursor, subject to the plugin-install rule in § Deployment.
 
 You will be asked to do two kinds of work in this repo:
 
@@ -100,49 +100,38 @@ Detect the platform first. Indicators:
 
 If you cannot determine the platform, ask the human.
 
-A plugin install puts the whole plugin on disk: the Claude Code marketplace or Codex. The single-skill routes — the Claude Code manual fallback, the Claude Agent SDK, Claude Desktop and Cursor — install skill folders one at a time, under these rules:
+Claude Code, Codex and the Claude Agent SDK install a plugin whole: its skills, hooks and every other file go on disk together, and Claude Code and the SDK name its skills `/<plugin>:<skill>`. Claude Desktop and Cursor install skill folders one at a time, and a skill installed as its own folder carries no plugin name: it runs as `/<skill>`. These two single-skill routes follow the plugin-install rule.
 
-- **Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, such as either `tracing` skill, uses files elsewhere in its plugin, so it needs a plugin install. A single-skill route takes only a skill whose files all sit inside its own folder or a companion's.
-- **Companion skills.** A skill that calls another skill of its plugin, or follows one of that skill's files, needs that skill installed beside it. Each route installs a skill's companions below with it:
+**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, or calls another skill by its plugin-qualified name `/<plugin>:<skill>` or follows one of that skill's files, needs a plugin install: only a plugin install puts the plugin's other files on disk and gives its skills those names. This list holds every such skill, and a single-skill route takes every skill it leaves out. The Claude Desktop commands read the list, so the change that brings a skill under this rule adds its row:
 
-  | Skill | Companion | Why |
-  |-------|-----------|-----|
-  | `codereview/loop` | `codereview/fix` | `loop` hands every open finding to `/codereview:fix` |
-  | `codereview/fix` | `codereview/loop` | on GitLab, `fix` reads the bot list as `loop`'s `reference/gitlab-bots.md` says |
-  | `repo/newbranch` | `repo/branch` | `newbranch` validates every branch name with `/repo:branch` |
+| Skill | Why it needs a plugin install |
+|-------|-------------------------------|
+| `codereview/fix` | on GitLab, it reads the bot list as `/codereview:loop`'s `reference/gitlab-bots.md` says |
+| `codereview/loop` | it hands every open finding to `/codereview:fix` |
+| `repo/newbranch` | it validates every branch name with `/repo:branch` |
+| `tracing/aitrace` | it reads `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/` |
+| `tracing/oteltrace` | it reads `${CLAUDE_PLUGIN_ROOT}/resources/oteltrace/` |
 
-- **Existing skill folders.** A route that writes the skill folder to disk — the Claude Code fallback, the Claude Agent SDK and Cursor — checks the target path first, and its command refuses when a folder, file or link of that name is already there. Ask the human before replacing it; on a yes, remove it and run the command again.
+Every route except an online marketplace install works from a clone of this repo. Use an existing clone, or make one:
+
+```bash
+git clone https://github.com/ChrisFmlyc/ai-skills.git "$HOME/code/ai-skills"
+```
+
+`<clone>` below stands for the clone's absolute path, such as `$HOME/code/ai-skills`.
 
 ### Claude Code (CLI)
 
-Preferred path — use the marketplace:
+Install from the marketplace:
 
 ```
 /plugin marketplace add ChrisFmlyc/ai-skills
 /plugin install <plugin>@ai-skills
 ```
 
+On an offline or air-gapped machine, add the marketplace from the clone instead: `/plugin marketplace add <clone>`.
+
 Then ask the human to restart Claude Code so the new slash commands register.
-
-Fallback (manual, for offline or air-gapped machines; a single-skill route under the rules above). Clone the repo, or use an existing clone:
-
-```bash
-git clone https://github.com/ChrisFmlyc/ai-skills.git "$HOME/code/ai-skills"
-```
-
-Then link each skill, companions included, into `~/.claude/skills`. Replace `<clone>` with the clone's absolute path, such as `$HOME/code/ai-skills`:
-
-```bash
-mkdir -p "$HOME/.claude/skills" &&
-  if [ -e "$HOME/.claude/skills/<skill>" ] || [ -L "$HOME/.claude/skills/<skill>" ]; then
-    echo "$HOME/.claude/skills/<skill> exists: ask the human before replacing it" >&2
-    false
-  else
-    ln -s "<clone>/plugins/<plugin>/skills/<skill>" "$HOME/.claude/skills/<skill>"
-  fi
-```
-
-User-level skills resolve from `~/.claude/skills/<name>/SKILL.md`. Project-level skills go in `<project>/.claude/skills/<name>/SKILL.md`.
 
 ### Claude Desktop / claude.ai web
 
@@ -151,15 +140,13 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
-This is a single-skill route under the rules above; the commands below stop for a skill that needs a plugin install.
-
-Give the human these commands to build the ZIP for each skill, companions included, from their clone of this repo, made with the `git clone` command in the Claude Code fallback above if they have none. Replace `<clone>` with the clone's absolute path, such as `$HOME/code/ai-skills`:
+This is a single-skill route. Give the human these commands to build the ZIP for each skill from their clone; they read the plugin-install list from the clone's `AGENTS.md` and stop for every skill on it:
 
 ```bash
 cd "<clone>/plugins/<plugin>/skills" &&
   rm -f "/tmp/<skill>.zip" &&
-  if grep -rq 'CLAUDE_PLUGIN_ROOT' "<skill>"; then
-    echo "<skill> reads files outside its folder: install the <plugin> plugin instead" >&2
+  if grep -q '^ *| `<plugin>/<skill>` |' "<clone>/AGENTS.md"; then
+    echo "<skill> needs a plugin install: install the <plugin> plugin instead" >&2
     false
   else
     zip -r "/tmp/<skill>.zip" "<skill>"
@@ -170,12 +157,12 @@ Then tell them to upload `/tmp/<skill>.zip` via the Skills UI. Do not attempt to
 
 ### Claude Agent SDK
 
-Skills load from `~/.claude/skills/` and `<cwd>/.claude/skills/` only when the SDK is configured to read them:
+The SDK loads a whole plugin from a local path through its `plugins` option. Point it at the plugin in the clone:
 
-- TypeScript: `query({ ..., settingSources: ['user', 'project'] })`
-- Python: `query(..., setting_sources=["user", "project"])`
+- TypeScript: `query({ prompt, options: { plugins: [{ type: "local", path: "<clone>/plugins/<plugin>" }] } })`
+- Python: `query(prompt=prompt, options=ClaudeAgentOptions(plugins=[{"type": "local", "path": "<clone>/plugins/<plugin>"}]))`
 
-Install procedure: same as the Claude Code fallback (clone + symlink into `~/.claude/skills/`), a single-skill route under the rules above. Then make sure the embedding application sets `settingSources`. If you do not control that code, surface the requirement to the human and stop.
+The SDK skips a path that does not exist and carries on, so check that the plugin is in the `plugins` list of the session's `init` message. If you do not control the embedding application's code, surface the requirement to the human and stop.
 
 ### Codex (OpenAI CLI)
 
@@ -186,7 +173,7 @@ codex plugin marketplace add ChrisFmlyc/ai-skills
 codex plugin add <plugin>@ai-skills
 ```
 
-Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or air-gapped machine, clone the repo and pass its path instead: `codex plugin marketplace add ~/code/ai-skills`.
+Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or air-gapped machine, add the marketplace from the clone instead: `codex plugin marketplace add <clone>`.
 
 **A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. Any change to the plugin's files, an upgrade included, marks the hook modified, and it stops running until it is trusted again. So after installing `repo`, and again after every upgrade or other edit to its files, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
 
@@ -194,8 +181,7 @@ Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or
 
 Cursor loads Agent Skills: each skill is a folder holding `SKILL.md`, found under `<project>/.cursor/skills/` for one project or `~/.cursor/skills/` for every project, and the skill reads the other files in that folder by paths relative to it. Install:
 
-1. Clone the repo with the `git clone` command in the Claude Code fallback above, or use an existing clone.
-2. For each desired skill, companions included, within the rules above (this is a single-skill route), copy the whole skill folder, with `SKILL.md` and every file and subfolder beside it, into a skills directory. Keep the folder's name, which Cursor requires to match the `name` in the skill's frontmatter. Replace `<clone>` with the clone's absolute path and `<skills>` with `<project>/.cursor/skills` or `$HOME/.cursor/skills`:
+1. For each desired skill outside the plugin-install list above (this is a single-skill route), copy the whole skill folder from the clone, with `SKILL.md` and every file and subfolder beside it, into a skills directory. Keep the folder's name, which Cursor requires to match the `name` in the skill's frontmatter. Replace `<skills>` with `<project>/.cursor/skills` or `$HOME/.cursor/skills`:
 
    ```bash
    mkdir -p "<skills>" &&
@@ -206,7 +192,9 @@ Cursor loads Agent Skills: each skill is a folder holding `SKILL.md`, found unde
        cp -R "<clone>/plugins/<plugin>/skills/<skill>" "<skills>/<skill>"
      fi
    ```
-3. If the skill's body references commands or paths specific to Claude Code (like `/plugin`), call that out — they will not work in Cursor.
+
+   The command refuses when a folder, file or link of that name is already there. Ask the human before replacing it; on a yes, remove it and run the command again.
+2. If the skill's body references commands or paths specific to Claude Code (like `/plugin`), call that out — they will not work in Cursor.
 
 Cursor's plugin ecosystem is still maturing. Test the skill in a throwaway file before recommending it for daily use.
 

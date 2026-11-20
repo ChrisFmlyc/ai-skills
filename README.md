@@ -41,7 +41,7 @@ Restart Claude Code so new slash commands register. After install, `/codereview:
 
 ## Other platforms
 
-The plugins also install in Codex, and single skills in Claude Desktop, the Claude Agent SDK and Cursor, with a different procedure on each and the plugin-install rule in `AGENTS.md` § Deployment deciding which skills need the whole plugin. Ask your agent: *"Install the ai-skills `<plugin>` plugin"* and it will read [`AGENTS.md`](./AGENTS.md) and follow the right procedure for the platform it's running on.
+The plugins also install whole in Codex and the Claude Agent SDK, and as single skills in Claude Desktop and Cursor, with a different procedure on each and the plugin-install rule in `AGENTS.md` § Deployment deciding which skills need the whole plugin. Ask your agent: *"Install the ai-skills `<plugin>` plugin"* and it will read [`AGENTS.md`](./AGENTS.md) and follow the right procedure for the platform it's running on.
 
 ## Repository layout
 
