@@ -49,7 +49,7 @@ After the first commit, check `git remote get-url origin` — expect failure (no
 
 > Repo name suggestion: **`<suggested-slug>`** (from current directory `<basename>`).
 > Pick one:
-> a) Create on GitHub as `<suggested-slug>` and push `main` (the placeholder README commit) to it — I'll run `gh repo create --push`.
+> a) Create on GitHub as `<suggested-slug>` and push `main` (the placeholder README commit) to it — I'll run `gh repo create`, then `git push`.
 > b) Create on GitHub with a different name and push `main` to it — reply with the slug or a short description.
 > c) Create on GitLab as `<suggested-slug>` and push `main` to it — I'll create the project with `glab`. Say if it belongs in a group (`group/<slug>`) or on a self-managed GitLab host rather than gitlab.com.
 > d) Use an existing remote — paste the URL.
@@ -81,10 +81,11 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 2. Ask for visibility (`--private` vs `--public`). Default to `--private`.
 3. Run, with the chosen slug:
    ```bash
-   gh repo create <slug> --source=. --private --remote=origin --push
+   gh repo create <slug> --source=. --private --remote=origin
    ```
-   (Swap `--private` for `--public` if the user picked public.) This single command creates the GitHub repo, adds it as `origin`, and pushes `main`.
-4. On success, print the URL: `gh repo view --json url -q .url`.
+   (Swap `--private` for `--public` if the user picked public.) This creates the GitHub repo and adds it as `origin`; `git config --get remote.origin.url` prints the URL it added.
+4. Push `main` to that URL as § Push to the created repo describes.
+5. On success, print the URL: `gh repo view --json url -q .url`.
 
 ## Create on GitLab
 
@@ -98,8 +99,24 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
      | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
    ```
    A 400 naming the path means the project already exists; ask for another slug.
-5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push with case 4's refspec: `git push -u origin refs/heads/main:refs/heads/main`. The question offered creating the project and pushing `main` together, so the user's yes covers this push, as it does for `gh repo create --push`.
+5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push `main` to that URL as § Push to the created repo describes.
 6. Print the `web_url`.
+
+## Push to the created repo
+
+The question offered creating the repo and pushing `main` together, so the user's yes covers a push to the URL `origin` was added with. `url.<base>.insteadOf` and `pushInsteadOf` rules in the user's git config can send the push somewhere else, so read the push URL git will use first:
+
+```bash
+git remote get-url --push origin
+```
+
+If it differs from the URL `origin` was added with, ask *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
+
+Then push with case 4's refspec:
+
+```bash
+git push -u origin refs/heads/main:refs/heads/main
+```
 
 ## Forbidden in this skill
 
@@ -108,7 +125,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 - Any form of `--force` / `-f`. Force-pushing a brand-new `main` is never warranted.
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
 - Running `gh repo create`, or creating a GitLab project, without an explicit yes from the user in their own words.
-- Pushing to a pasted URL before the user has confirmed the push URL git reports.
+- Pushing before the user has confirmed the push URL git reports — always for a pasted URL, and for a created repo whenever that URL differs from the one `origin` was added with.
 - `--no-verify`, `--no-gpg-sign`.
 
 ## Exit state
