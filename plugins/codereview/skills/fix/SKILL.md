@@ -536,8 +536,10 @@ Take this path when you determine a finding should not be fixed: either because 
 > # 1. find your thread
 > gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:100){totalCount nodes{databaseId body author{__typename login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
 >
-> # 2. post your reason, then resolve the thread: run these four lines as one command
-> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>' ||
+> # 2. post your reason, then resolve the thread: run these six lines as one command
+> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -F body=@- <<'REPLY' ||
+> (ai-skills:fix) <one sentence saying why this was not fixed>
+> REPLY
 >   { echo "ERROR: the reply on thread <threadId> failed, so the thread is still open" >&2; exit 1; }
 > gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -F id=<threadId> ||
 >   { echo "ERROR: thread <threadId> has its reply but did not resolve" >&2; exit 1; }
@@ -549,8 +551,10 @@ Take this path when you determine a finding should not be fixed: either because 
 > # 1. find your discussion
 > set -o pipefail; glab api --paginate --hostname <host> "projects/<project id>/merge_requests/<iid>/discussions" | jq -s --argjson bots '[<bot ids>]' --argjson me '<self id>' '(if length == 0 then error("no response from glab") else add end) | [.[] | select(any(.notes[]; .resolvable and (.resolved | not))) | [.notes[] | select(.system | not)] as $n | {id, path: $n[0].position.new_path, note_id: $n[0].id, author: $n[0].author.username, author_id: $n[0].author.id, body: $n[0].body, by: (if ($n[0].author.id | IN($bots[])) and all($n[]; (.author.id | IN($bots[])) or (.author.id == $me and (.body | startswith("(ai-skills:")))) then "bot" else "human" end)}]'
 >
-> # 2. post your reason, then resolve the discussion: run these four lines as one command
-> glab api --hostname <host> --method POST "projects/<project id>/merge_requests/<iid>/discussions/<id>/notes" -f body='(ai-skills:fix) <one sentence saying why this was not fixed>' ||
+> # 2. post your reason, then resolve the discussion: run these six lines as one command
+> glab api --hostname <host> --method POST "projects/<project id>/merge_requests/<iid>/discussions/<id>/notes" -F body=@- <<'REPLY' ||
+> (ai-skills:fix) <one sentence saying why this was not fixed>
+> REPLY
 >   { echo "ERROR: the reply on discussion <id> failed, so the discussion is still open" >&2; exit 1; }
 > glab api --hostname <host> --method PUT "projects/<project id>/merge_requests/<iid>/discussions/<id>" -F resolved=true ||
 >   { echo "ERROR: discussion <id> has its reply but did not resolve" >&2; exit 1; }
@@ -564,7 +568,7 @@ Take this path when you determine a finding should not be fixed: either because 
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
 > - Always comment before resolving. The resolve runs only once the reply has posted, so a thread never closes without its answer.
 > - Start every comment you post with `(ai-skills:fix)`.
-> - One sentence, in plain English, saying what you decided and why. No code, no diffs, no line numbers — a person is reading this on GitHub or GitLab.
+> - One sentence, in plain English, saying what you decided and why, written on the single line between `<<'REPLY'` and `REPLY`. No code, no diffs, no line numbers — a person is reading this on GitHub or GitLab. `-F body=@-` reads that line from standard input and posts it as text, and the quotes around `'REPLY'` stop the shell from expanding it, so an apostrophe or a `$` in your sentence posts as written.
 >
 > Return `{ outcome: "commented", index, reason, thread_url }`, or `{ outcome: "no-thread", index, reason, first_sentence }` if you could not find it. If the reply or the resolve prints an ERROR, stop there and return `{ outcome: "error", index, error }` with that ERROR, never `commented`.
 
