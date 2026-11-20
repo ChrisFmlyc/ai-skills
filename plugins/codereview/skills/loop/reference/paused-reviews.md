@@ -84,8 +84,10 @@ your commit unreviewed at the deadline.
    60 minutes after the bot said so, CodeRabbit's own advice when it gives no
    time.
 4. **Silent:** at the first check 15 minutes after the commit reached the PR,
-   a bot that has said nothing about it, with no check run or status on it and
-   no comment or note since, gets the command. On GitLab this is the adapter's
+   a bot that has said nothing about this push, with no check run or status
+   set on the commit since it reached the PR and no comment or note since,
+   gets the command. A check run or status left from an earlier push of the
+   same commit says nothing about this one. On GitLab this is the adapter's
    re-trigger in [`gitlab-bots.md`](gitlab-bots.md) § Re-triggers, the same
    request under its other name.
 
@@ -101,7 +103,7 @@ fails or hits a rate limit again after the request, send nothing more: when
 the 30 minutes are up, step 1's WARNING or ERROR names the pause or limit so a
 person sees why. Every other pending bot keeps step 1's deadline, a working
 one included: a CodeRabbit run that stays `queued` or `in_progress`, or a
-status that stays `pending`, with no paused or rate-limit notice about your
+`pending` status set since the push, with no paused or rate-limit notice about your
 latest commit deciding otherwise, gets no request, and the deadline decides.
 
 Post the command as a new top-level comment holding exactly the text in the
