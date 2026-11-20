@@ -1,0 +1,2 @@
+[{"id": 10, "system": false, "author": {"id": 202}, "created_at": "2026-11-20T13:00:00.000+01:00", "updated_at": "2026-11-20T13:00:00.000+01:00", "body": "Rate limit exceeded. Please wait **59 seconds** before requesting another review."}, {"id": 11, "system": true, "author": {"id": 202}, "created_at": "2026-11-20T13:10:00.000+01:00", "body": "mentioned the review rate limited state in a commit"}]
+[{"id": 12, "system": false, "author": {"id": 5}, "created_at": "2026-11-20T13:20:00.000+01:00", "body": "Review rate limited again?"}]

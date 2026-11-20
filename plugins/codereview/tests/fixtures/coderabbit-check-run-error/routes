@@ -1,0 +1,2 @@
+^gh api repos/\{owner\}/\{repo\}/commits/abc123/check-runs\?check_name=CodeRabbit$	check-runs-error.json	1
+^gh api --paginate repos/\{owner\}/\{repo\}/commits/abc123/statuses\?per_page=100$	statuses.json

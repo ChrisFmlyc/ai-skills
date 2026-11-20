@@ -1,0 +1,1 @@
+{"total_count": 1, "check_runs": [{"id": 12, "app": {"slug": "impostor"}, "status": "completed", "conclusion": "success", "started_at": "2026-11-18T10:12:00Z", "completed_at": "2026-11-18T10:12:00Z", "output": {"title": "Finished"}}]}

@@ -27,7 +27,7 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/.." && pwd)
 cases_dir="$root/tests/fixtures"
-docs=("$root/skills/loop/SKILL.md" "$root/skills/loop/reference/gitlab-bots.md" "$root/skills/fix/SKILL.md")
+docs=("$root/skills/loop/SKILL.md" "$root/skills/loop/reference/gitlab-bots.md" "$root/skills/loop/reference/paused-reviews.md" "$root/skills/fix/SKILL.md")
 
 command -v jq >/dev/null || { echo "snippets: jq is required" >&2; exit 1; }
 
