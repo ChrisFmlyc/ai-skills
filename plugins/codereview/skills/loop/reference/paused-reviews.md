@@ -28,7 +28,7 @@ On GitHub a bot is known by its login; on GitLab by its `kind` in the bot list
 
 | Bot | GitHub login / GitLab `kind` | Paused, skipped or failed | Rate-limited | One-off review |
 |---|---|---|---|---|
-| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run (GitHub, the `coderabbit-check` query) or commit status (GitLab, `gitlab-bots.md`'s `coderabbit-status` query) on your latest commit reads "Review paused", "Review skipped", "Incremental review skipped" or "Review failed"; or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`. | `@coderabbitai review` |
+| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped" or "Review failed"; or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`. | `@coderabbitai review` |
 | Greptile | `greptile-apps[bot]` / `greptile` | None: it skips drafts and filtered PRs without a word, so silence is the signal. | None documented. | `@greptileai review` |
 | Wiz Code | `wiz-<tenant id>[bot]` / `generic` | None: its check runs appear only once a scan has finished, and a scan that times out reports passed. | None documented. | None: it has no re-scan command. |
 | any other bot | any / `generic` | None known. | None known. | None. |
@@ -44,8 +44,10 @@ Some outcomes are a bot's answer, not a stall, and get no request:
 - **Finished without a review.** CodeRabbit can finish a commit without
   posting a review, as it does when it has nothing new to say. On GitHub its
   `CodeRabbit` check run on your latest commit reading "Finished" or "No files
-  to review" counts as its review of that commit in step 1. On GitLab its
-  adapter in [`gitlab-bots.md`](gitlab-bots.md) says when it has finished.
+  to review", or its `success` commit status reading "Review completed", "No
+  reviewable changes" or "carried forward", counts as its review of that
+  commit in step 1. On GitLab its adapter in [`gitlab-bots.md`](gitlab-bots.md)
+  says when it has finished.
 - **A draft.** The bots skip drafts by design. Marking the PR or MR ready is
   the user's call: STOP and raise an ERROR saying it is a draft.
 - **Too much to review, or ignored paths.** CodeRabbit's "Too many files to
@@ -72,9 +74,9 @@ written no earlier than the status was set means CodeRabbit stopped after it
 started, so the notice's kind decides as the rules below say; a `pending`
 status set after the notice means it has started again, so it is still
 working and gets no request. On GitHub the `coderabbit-check` query gives the
-run no time, so the notice decides: asking a bot that is already working
-costs one incremental review, while waiting on one that has stopped leaves
-your commit unreviewed at the deadline.
+run or status no time, so the notice decides: asking a bot that is already
+working costs one incremental review, while waiting on one that has stopped
+leaves your commit unreviewed at the deadline.
 
 1. **Paused, skipped or failed:** post the bot's one-off command now.
 2. **Rate-limited, with a wait of 60 minutes or less:** keep checking the
@@ -126,21 +128,42 @@ remediate`, and nothing else on the list in [`gitlab-bots.md`](gitlab-bots.md)
 
 ## The `coderabbit-check` query
 
-On GitHub, it prints the status, conclusion and title of CodeRabbit's newest
-check run on a commit, or nothing when there is none:
+On GitHub, CodeRabbit reports on a commit through a `CodeRabbit` check run,
+or through a `CodeRabbit` commit status when the repository sets
+`reviews.review_progress` to `false`. The query prints one line for
+CodeRabbit's newest report on a commit: its newest check run's status,
+conclusion and title, or, when the commit has no CodeRabbit check run, its
+newest commit status's state, an empty field and its description. It prints
+nothing when the commit has neither:
 
 <!-- snippet-test: coderabbit-check -->
 ```bash
-gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?check_name=CodeRabbit" \
+set -o pipefail
+run=$(gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?check_name=CodeRabbit" \
   --jq '[.check_runs[] | select(.app.slug == "coderabbitai")] | max_by(.id) // empty
-        | [.status, (.conclusion // ""), .output.title] | @tsv'
+        | [.status, (.conclusion // ""), .output.title] | @tsv') || exit
+if [ -n "$run" ]; then
+  printf '%s\n' "$run"
+else
+  gh api --paginate "repos/{owner}/{repo}/commits/<sha>/statuses?per_page=100" \
+    | jq -rs '(if length == 0 then error("no response from gh") else add end)
+        | [.[] | select(.context == "CodeRabbit" and .creator.login == "coderabbitai[bot]")]
+        | max_by(.id) // empty
+        | [.state, "", .description] | @tsv'
+fi
 ```
 
-A run still `queued` or `in_progress` is working, unless a paused or
-rate-limit notice about your latest commit beside it decides otherwise, as
-[What the loop does](#what-the-loop-does) says. Read the title, never the
-conclusion alone: a rate-limited review and, by default, a failed one both
-conclude `neutral`.
+A check run counts only from the `coderabbitai` app, and a commit status only
+from CodeRabbit's own account, `coderabbitai[bot]`: anyone who can write to
+the repository can set a status named `CodeRabbit`.
+
+A run still `queued` or `in_progress`, or a `pending` status, is working,
+unless a paused or rate-limit notice about your latest commit beside it
+decides otherwise, as [What the loop does](#what-the-loop-does) says. Read a
+status's description as you read a run's title, and never go by the
+conclusion or state alone: a rate-limited review and, by default, a failed one
+both conclude `neutral`, and a commit status has no state for a paused or
+skipped review.
 
 ## The `notice` query
 

@@ -1,0 +1,1 @@
+[{"id": 7001, "state": "success", "description": "Build succeeded", "context": "ci/unit", "created_at": "2026-11-18T10:05:00Z", "updated_at": "2026-11-18T10:05:00Z", "creator": {"login": "ci-runner", "type": "User"}}]
