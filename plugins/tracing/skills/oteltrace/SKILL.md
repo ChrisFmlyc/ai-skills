@@ -3,7 +3,7 @@ name: oteltrace
 description: Invoke when an app in any language needs application observability — logs, distributed traces, errors and liveness metrics. It instruments the app with OpenTelemetry and exports those signals to PostHog. It never does LLM tracing (that is /tracing:aitrace), and never starts on its own, because it rewrites every logging call in the project; type /tracing:oteltrace to run it.
 disable-model-invocation: true
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # tracing:oteltrace — OpenTelemetry logs + distributed traces for PostHog

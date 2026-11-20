@@ -2,7 +2,7 @@
 name: newbranch
 description: Invoke when starting new work, directly or through a caller such as /spades:scope, or with --resume <branch> to continue that branch's worktree. /repo:newbranch prepares a clean default branch synchronised with its remote, creates the branch and its dedicated worktree, and returns the path. It never commits, pushes, opens a PR, or cleans up other work.
 metadata:
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 # repo:newbranch — prepare the base and return the worktree

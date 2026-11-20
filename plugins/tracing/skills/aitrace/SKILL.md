@@ -3,7 +3,7 @@ name: aitrace
 description: Invoke when a Mastra (TypeScript) project needs native PostHog AI tracing wired in and validated end to end. It wires the connector, users and sessions, errors and sampling, then runs a read-back confirming $ai_* traces actually landed. It never starts on its own, because it installs dependencies and edits your Mastra instance; type /tracing:aitrace to run it.
 disable-model-invocation: true
 metadata:
-  version: "0.2.1"
+  version: "0.2.2"
 ---
 
 # tracing:aitrace — native PostHog AI tracing for Mastra, wired and validated

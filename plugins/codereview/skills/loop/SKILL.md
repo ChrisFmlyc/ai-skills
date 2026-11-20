@@ -2,7 +2,7 @@
 name: loop
 description: Invoke to drive outstanding code review findings to zero on a GitHub Pull Request (PR) or a GitLab merge request (MR); on GitLab it acts only on the listed review-bot accounts. /codereview:loop waits until every review bot has reviewed the latest push, hands the open findings to /codereview:fix, comments on and resolves threads that fix already resolved in code, merges the base branch in when the PR falls behind it, pushes, and repeats until no bot finding is open. It never edits code to fix a finding itself; /codereview:fix does that.
 metadata:
-  version: "0.11.0"
+  version: "0.11.1"
 ---
 
 # codereview:loop — cycle a Pull Request (PR) until all findings are fixed

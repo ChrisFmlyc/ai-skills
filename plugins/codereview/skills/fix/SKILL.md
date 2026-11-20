@@ -2,7 +2,7 @@
 name: fix
 description: Invoke when the user or an agent has code review findings to fix on a GitHub Pull Request (PR) or GitLab merge request (MR), from CodeRabbit, Greptile, or any other review bot. Parses the block into separate findings, gives each one its own subagent to either fix in code or comment and resolve on GitHub or GitLab, then commits the fixes to the branch; it never pushes, the caller does that.
 metadata:
-  version: "0.6.0"
+  version: "0.6.1"
 ---
 
 # codereview:fix — one subagent per finding, all at once

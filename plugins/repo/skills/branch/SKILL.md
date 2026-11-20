@@ -2,7 +2,7 @@
 name: branch
 description: STOP. Invoke before every branch creation, worktree creation, and commit — including git checkout -b, git switch -c, git branch <name>, and git worktree add. /repo:branch checks the branch name against the required prefixes (feat/, fix/, chore/, docs/, refactor/, rnd/, hotfix/) and refuses any commit on main or master; it creates nothing itself, it only permits or refuses. In Claude Code, and in Codex once the human has trusted it, the plugin's PreToolUse hook enforces the same rules on every Bash command, so a refused command, --no-verify included, never runs.
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # repo:branch — branch-policy enforcement guardrail
