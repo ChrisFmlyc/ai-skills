@@ -14,7 +14,8 @@ The caller names the review bots, one entry per account, as
 `<username>[:<kind>]`:
 
 - `/codereview:loop <MR link> --bots acme-coderabbit:coderabbit,GitLabDuo:duo`
-- otherwise `.codereview.yml` at the repository root:
+- otherwise `.codereview.yml` at the root of the target project's default
+  branch:
 
   ```yaml
   gitlab:
@@ -25,10 +26,28 @@ The caller names the review bots, one entry per account, as
         kind: duo
   ```
 
+The list decides whose threads the loop answers and resolves, so it comes
+only from a source the MR cannot change: the caller's `--bots`, or the file as
+the target project's default branch holds it. The checkout is the MR's own
+branch, which whoever opened the MR writes, and a list read from there could
+name any account as a bot, a person reviewing the MR included. Read the file
+through the API, with the MR's host and `target_project_id`:
+
+```bash
+glab api --hostname <host> "projects/<target_project_id>/repository/files/.codereview.yml/raw"
+```
+
+With no `ref`, GitLab reads the project's default branch, and the command
+prints the file. A 404 means the default branch has no `.codereview.yml`, so
+there is no list from the file; any other failure is a STOP with an ERROR
+quoting glab's message. A list that an MR adds or changes takes effect once it
+is merged into the default branch.
+
 `kind` picks the adapter below and defaults to `generic`. A `--bots` argument
-replaces the file's list. With no list from either source, STOP and raise an
-ERROR: every thread would count as a person's, so there is nothing the loop
-may touch. Tell the user to pass `--bots` or add `.codereview.yml`.
+replaces the file's list, and the file is then not read. With no list from
+either source, STOP and raise an ERROR: every thread would count as a
+person's, so there is nothing the loop may touch. Tell the user to pass
+`--bots` or add `.codereview.yml` to the default branch.
 
 Check each username against `^[A-Za-z0-9._-]+$` and each kind against the
 adapter names; STOP and raise an ERROR quoting any that fails. Then pin each
