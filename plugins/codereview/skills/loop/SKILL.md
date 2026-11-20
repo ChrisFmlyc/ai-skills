@@ -104,7 +104,7 @@ gh api graphql -f query='
     repository(owner:$owner,name:$repo){
       pullRequest(number:$pr){
         reviewThreads(first:100){
-          nodes{ id isResolved path comments(first:10){ nodes{ databaseId author{ __typename login } body url } } }
+          nodes{ id isResolved path comments(first:100){ totalCount nodes{ databaseId author{ __typename login } body url } } }
         }
       }
     }
@@ -136,7 +136,7 @@ A thread counts as an **open finding** when all three are true:
 - the thread's first comment was written by a review bot: on GitHub its `author.__typename` is `Bot` — GraphQL gives a bot's login without the `[bot]` suffix (`coderabbitai`, not `coderabbitai[bot]`), so go by the type, never by the name; on GitLab its `author_id` is one pinned in *Before you start* step 7
 - every later comment is a review bot's, or one of this skill's and `/codereview:fix`'s own replies: it starts with `(ai-skills:` and its author is the account from *Before you start* step 8 (on GitHub its `author.login`, on GitLab its `author.id`) — on GitLab, `by` is `"bot"`
 
-A thread a person wrote or replied in never counts, and you never touch it: their reply may be the reason the finding should stay. Any other reply is a person's: an `(ai-skills:` reply from another account, a reply without that prefix from the step 8 account, and on GitLab a reply from any account not on the bot list, whatever its username looks like.
+A thread a person wrote or replied in never counts, and you never touch it: their reply may be the reason the finding should stay. Any other reply is a person's: an `(ai-skills:` reply from another account, a reply without that prefix from the step 8 account, and on GitLab a reply from any account not on the bot list, whatever its username looks like. On GitHub, a comment the query did not return counts as a person's, so a thread whose `comments.totalCount` is larger than the number of its `comments.nodes` never counts. On GitLab each discussion carries all its notes and `--paginate` reads every page of discussions, so the list already holds every note.
 
 Then:
 
