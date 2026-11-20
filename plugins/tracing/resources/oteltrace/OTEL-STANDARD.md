@@ -269,8 +269,8 @@ why it works across languages.
 
 | Situation | Shape |
 |---|---|
-| First delivery, valid context present, one consumer, short chain (a handful of spans) | **Continue** — one trace end to end |
-| First delivery, valid context present, several consumers or a long chain | **New root + link** |
+| First delivery, valid context present, the message goes to exactly one consumer, and handling it publishes no further message | **Continue** — one trace end to end |
+| First delivery, valid context present, and the message goes to several consumers or handling it publishes a further message | **New root + link** |
 | Redelivery / retry | **New root + link** — the original trace already closed |
 | Long human delay (email → click, days later) | **New root + link** |
 | Clock-driven work (timer, cron) | **Root, no link** — nothing caused it |
@@ -279,7 +279,10 @@ why it works across languages.
 
 Linking where you could continue costs something concrete: one request becomes
 two disconnected traces, and because log records take the trace id of the active
-span, the producer's trace shows producer logs and nothing else.
+span, the producer's trace shows producer logs and nothing else. Linking at every
+consumer that publishes onward is what keeps each trace to at most one message hop,
+however long the pipeline grows; the flow-level correlation id below joins the
+hops.
 
 Prefer new-root-plus-link when the causing span has already ended. Re-parenting
 onto a finished span reopens it and stretches its duration across the entire gap.
