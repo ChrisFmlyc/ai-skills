@@ -119,13 +119,14 @@ it with `git worktree add <worktree-path> <branch>`. A missing branch
 requires clarification rather than silently recreating completed work.
 
 Inspect both the index and working tree. For each uncommitted change,
-including staged deletions and untracked files:
+including staged deletions and untracked files, apply the first rule that
+matches:
 
-- an edit known to come from the current authorised run: include it
-- a change already decided on: apply that decision
-- any other change, including an unknown one in a path already decided on:
-  ask whether to include it in this work's next PR or leave it outside, and
-  wait before incorporating it
+1. a change already decided on: apply that decision
+2. an edit known to come from the current authorised run: include it
+3. any other change, including an unknown one in a path already decided on:
+   ask whether to include it in this work's next PR or leave it outside, and
+   wait before incorporating it
 
 Preserve excluded content and staging. The committing caller checks the
 full proposed commit, not just the paths passed to `git add`.
