@@ -75,7 +75,7 @@ bot.
 
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
-| `coderabbit` | Its newest `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, and was set no earlier than the push, as the query below sets out. `pending` set no earlier than the push is still working, unless the bot has written a paused or rate-limit notice since the push and no earlier than that status, as below. A paused, skipped, failed or rate-limited review set no earlier than the push keeps it pending and gets a one-off review request, as [`paused-reviews.md`](paused-reviews.md) sets out. Any other status or description, any status set before the push among them, keeps it pending, and a paused or rate-limit notice the bot has posted or edited since the push gets it the request beside such a status or with no status at all, as below. Only when the head commit has no `CodeRabbit` status from the bot at all, and the bot has posted or edited no such notice since the push, does a note finish it, by the `generic` rule; its answer to the loop's own request is not a review, as below. Silence never finishes CodeRabbit: step 1's deadline decides, 30 minutes from its request once it has had one ([Re-triggers](#re-triggers)). | Yes, on its next review. | `@coderabbitai review` as a new MR note, when it has said nothing about the push 15 minutes after it ([Re-triggers](#re-triggers)). |
+| `coderabbit` | Its newest `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, and was set no earlier than the push, as the query below sets out. `pending` set no earlier than the push is still working, unless the bot has written a paused or rate-limit notice since the push and no earlier than that status, as below. A paused, skipped, failed, cancelled or rate-limited review set no earlier than the push, whether its description says so or its status is `failed` or `canceled`, keeps it pending and gets a one-off review request, as the rules below and [`paused-reviews.md`](paused-reviews.md) set out. Any other status or description, any status set before the push among them, keeps it pending, and a paused or rate-limit notice the bot has posted or edited since the push gets it the request beside such a status or with no status at all, as below. Only when the head commit has no `CodeRabbit` status from the bot at all, and the bot has posted or edited no such notice since the push, does a note finish it, by the `generic` rule; its answer to the loop's own request is not a review, as below. Silence never finishes CodeRabbit: step 1's deadline decides, 30 minutes from its request once it has had one ([Re-triggers](#re-triggers)). | Yes, on its next review. | `@coderabbitai review` as a new MR note, when it has said nothing about the push 15 minutes after it ([Re-triggers](#re-triggers)). |
 | `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai review` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule alone, with its re-trigger posted before silence can finish it. Its reviewer state, which GitLab Duo's Code Review Flow sets to `approved` (nothing found) or `requested_changes`, is for the report only: it can be left from an earlier head, and it explains a `requested_changes` merge status. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
@@ -151,10 +151,19 @@ time, no status is finished or asks for a request. Match the description by
 these phrases, ignoring case, and take the first case that holds:
 
 - "Review paused", "Review skipped", "Incremental review skipped", "Review
-  failed" or "Review rate limited", whatever the status, and `set_at` no
-  earlier than the push time: not finished. GitLab has no skipped state, so
-  CodeRabbit can report these as `success`. Ask for a one-off review as
-  [`paused-reviews.md`](paused-reviews.md) sets out.
+  failed", "Review cancelled" or "Review rate limited", whatever the status,
+  and `set_at` no earlier than the push time: not finished. GitLab has no
+  skipped state, so CodeRabbit can report these as `success`. Ask for a
+  one-off review as [`paused-reviews.md`](paused-reviews.md) sets out.
+- `failed` or `canceled`, with any other description, and `set_at` no earlier
+  than the push time: not finished. CodeRabbit stopped before it reviewed this
+  push, so it gets the one-off review request
+  [`paused-reviews.md`](paused-reviews.md#what-the-loop-does) sets out: at
+  once, or as its wait allows when the bot has posted or edited a rate-limit
+  notice since the push. A description that names an outcome in
+  [`paused-reviews.md`](paused-reviews.md#finished-or-not-worth-asking)
+  § Finished, or not worth asking, such as "Too many files to review", gets
+  no request, and step 1's deadline decides.
 - `success` with "Review completed", "No reviewable changes" or "carried
   forward", as in "Prior review carried forward", and `set_at` no earlier than
   the push time: finished. A review of the same commit that began before the
@@ -170,8 +179,8 @@ these phrases, ignoring case, and take the first case that holds:
   once for a pause and for a rate limit as its wait allows. A `pending`
   status set after the notice means CodeRabbit has started again: it is
   still working and gets no request.
-- Anything else, such as a `failure`, any status set before the push, or a
-  `success` whose description matches none of the phrases above: not
+- Anything else, such as any status set before the push, or a `success`
+  whose description matches none of the phrases above: not
   finished, so CodeRabbit stays pending. A paused or rate-limit notice the
   bot has posted or edited since the push, before or after the status was
   set, gets it the one-off review request, as below. Without one, silence

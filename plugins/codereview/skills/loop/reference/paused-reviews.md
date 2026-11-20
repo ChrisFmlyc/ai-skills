@@ -28,7 +28,7 @@ On GitHub a bot is known by its login; on GitLab by its `kind` in the bot list
 
 | Bot | GitHub login / GitLab `kind` | Paused, skipped or failed | Rate-limited | One-off review |
 |---|---|---|---|---|
-| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped" or "Review failed"; or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`. | `@coderabbitai review` |
+| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped", "Review failed" or "Review cancelled"; or it failed without giving a reason: a run concluded `failure`, `cancelled` or `timed_out`, a GitHub status `failure` or `error`, or a GitLab status `failed` or `canceled`, whose title or description reads no phrase in this row and no outcome in [Finished, or not worth asking](#finished-or-not-worth-asking); or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`; such a notice also gives the reason for a run or status that failed without one. | `@coderabbitai review` |
 | Greptile | `greptile-apps[bot]` / `greptile` | None: it skips drafts and filtered PRs without a word, so silence is the signal. | None documented. | `@greptileai review` |
 | Wiz Code | `wiz-<tenant id>[bot]` / `generic` | None: its check runs appear only once a scan has finished, and a scan that times out reports passed. | None documented. | None: it has no re-scan command. |
 | any other bot | any / `generic` | None known. | None known. | None. |
@@ -160,10 +160,16 @@ the repository can set a status named `CodeRabbit`.
 A run still `queued` or `in_progress`, or a `pending` status, is working,
 unless a paused or rate-limit notice about your latest commit beside it
 decides otherwise, as [What the loop does](#what-the-loop-does) says. Read a
-status's description as you read a run's title, and never go by the
-conclusion or state alone: a rate-limited review and, by default, a failed one
-both conclude `neutral`, and a commit status has no state for a paused or
-skipped review.
+status's description as you read a run's title, and go by it before the
+conclusion or state: a rate-limited review and, by default, a failed one both
+conclude `neutral`, and a commit status has no state for a paused or skipped
+review. A failure decides only when the title or description reads none of
+the adapter row's phrases and no outcome in
+[Finished, or not worth asking](#finished-or-not-worth-asking): a run that
+concluded `failure`, `cancelled` or `timed_out`, or a status in state
+`failure` or `error`, means CodeRabbit stopped before it reviewed the commit.
+It counts as failed and gets the one-off request by rule 1, or, when a
+rate-limit notice about your latest commit says why, once its wait allows.
 
 ## The `notice` query
 
