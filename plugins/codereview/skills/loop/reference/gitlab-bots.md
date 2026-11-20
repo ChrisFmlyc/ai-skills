@@ -75,7 +75,7 @@ bot.
 
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
-| `coderabbit` | Its `CodeRabbit` commit status on the head commit is `success` with a description saying the review is done, as the query below sets out. `pending` is still working. A paused or skipped review is a STOP: report it, because only a person resumes it. Any other status or description, a rate-limited review among them, does not count as finished: use the `generic` rule, as when the head commit has no `CodeRabbit` status at all. | Yes, on its next review. | None — it reviews every push. |
+| `coderabbit` | Its `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, as the query below sets out. `pending` is still working. A paused or skipped review is a STOP: report it, because only a person resumes it. Any other status or description, a rate-limited review among them, does not count as finished: use the `generic` rule, as when the head commit has no `CodeRabbit` status from the bot at all. | Yes, on its next review. | None — it reviews every push. |
 | `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule alone, with its re-trigger posted before silence can finish it. Its reviewer state, which GitLab Duo's Code Review Flow sets to `approved` (nothing found) or `requested_changes`, is for the report only: it can be left from an earlier head, and it explains a `requested_changes` merge status. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
@@ -105,19 +105,23 @@ GitLab has recorded the head on the MR; read it again on the next check. Read
 it again whenever the MR's `sha` changes. Every "15 minutes after the push"
 counts from it, and it is when the commit reached the MR for step 1's deadline.
 
-The `coderabbit` status, with the head commit's full SHA:
+The `coderabbit` status, with the head commit's full SHA and the bot's pinned
+ID:
 
 <!-- snippet-test: coderabbit-status -->
 ```bash
 set -o pipefail
 glab api --paginate --hostname <host> "projects/<target_project_id>/repository/commits/<head-sha>/statuses" \
-  | jq -sc '(if length == 0 then error("no response from glab") else add end)
-            | [.[] | select(.name == "CodeRabbit") | {status, description}] | first'
+  | jq -sc --argjson bot <id> '(if length == 0 then error("no response from glab") else add end)
+            | [.[] | select(.name == "CodeRabbit" and .author.id == $bot) | {status, description}] | first'
 ```
 
 It prints the status and its description, or `null` when the head commit has
-no `CodeRabbit` status. Match the description by these phrases, ignoring case,
-and take the first case that holds:
+no `CodeRabbit` status from the bot's account. Anyone who can set commit
+statuses on the project can set one named `CodeRabbit`, so a status counts
+only when its `author.id` is the bot's pinned ID, as for a note. Match the
+description by these phrases, ignoring case, and take the first case that
+holds:
 
 - "Review paused" or "Review skipped", whatever the status: a STOP. Report it;
   only a person resumes the review.

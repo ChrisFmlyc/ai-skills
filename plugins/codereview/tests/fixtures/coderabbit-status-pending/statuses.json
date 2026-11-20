@@ -1,2 +1,2 @@
-[{"name": "unit", "status": "success", "description": null}]
-[{"name": "CodeRabbit", "status": "pending", "description": "Review in progress"}]
+[{"name": "unit", "status": "success", "description": null, "author": {"id": 11, "username": "ci-runner"}}, {"name": "CodeRabbit", "status": "success", "description": "Review completed", "author": {"id": 555, "username": "mallory"}}]
+[{"name": "CodeRabbit", "status": "pending", "description": "Review in progress", "author": {"id": 202, "username": "acme-coderabbit"}}]

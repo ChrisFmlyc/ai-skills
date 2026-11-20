@@ -1,1 +1,1 @@
-[{"name": "unit", "status": "success"}]
+[{"name": "unit", "status": "success", "author": {"id": 11, "username": "ci-runner"}}, {"name": "CodeRabbit", "status": "success", "description": "Review completed", "author": {"id": 555, "username": "mallory"}}]
