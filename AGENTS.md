@@ -32,10 +32,6 @@ These rules are non-negotiable. If a request would violate one, stop and explain
    sentences: **Invoke when X. It does Y. It never does Z.** The closing boundary
    is what stops skills in the same plugin being confused for each other.
 
-   Do **not** add a `metadata.triggers` list. `metadata` is a free-form map that
-   Claude Code never reads, so trigger phrases parked there never fire. If a
-   literal phrase matters, put it in `description`.
-
    Set `disable-model-invocation: true` only for a skill that must never start on
    its own. It also keeps the description out of context entirely, so the skill
    becomes reachable by slash command alone.
@@ -79,7 +75,6 @@ Shell snippets in `codereview` that are tagged `<!-- snippet-test: <name> -->` r
 ### Things to avoid
 
 - Do **not** put `agents/`, `commands/`, `skills/`, or `hooks/` inside `.claude-plugin/`. Only `plugin.json` lives there. Skills go in `plugins/<plugin>/skills/<skill>/SKILL.md`.
-- Do **not** invent install paths for platforms not documented below. If a human asks about an unlisted platform, say you do not know the current install procedure and ask them to point you at the platform's docs.
 - Do **not** commit `.claude/settings.local.json`, `.DS_Store`, or any file containing secrets.
 
 ## Deployment — per-platform install procedures
@@ -108,7 +103,7 @@ Then ask the human to restart Claude Code so the new slash commands register.
 Fallback (manual, for offline or air-gapped machines):
 
 ```bash
-git clone git@github.com:ChrisFmlyc/ai-skills.git ~/code/ai-skills
+git clone https://github.com/ChrisFmlyc/ai-skills.git ~/code/ai-skills
 mkdir -p ~/.claude/skills
 ln -s ~/code/ai-skills/plugins/<plugin>/skills/<skill> ~/.claude/skills/<skill>
 ```
@@ -122,14 +117,14 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
-Your job as the agent is to produce the ZIP:
+Give the human these commands to build the ZIP from a clone of this repo:
 
 ```bash
 cd ~/code/ai-skills/plugins/<plugin>/skills
 zip -r /tmp/<skill>.zip <skill>
 ```
 
-Hand `/tmp/<skill>.zip` to the human and tell them to upload it via the Skills UI. Do not attempt to upload it yourself.
+Then tell them to upload `/tmp/<skill>.zip` via the Skills UI. Do not attempt to upload it yourself.
 
 ### Claude Agent SDK
 
@@ -151,7 +146,7 @@ codex plugin add <plugin>@ai-skills
 
 Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or air-gapped machine, clone the repo and pass its path instead: `codex plugin marketplace add ~/code/ai-skills`.
 
-**A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. After installing `repo`, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. Any change to the plugin's files, an upgrade or any other edit, marks the hook modified, and it stops running until it is trusted again. Upgrades are the usual cause, so ask again after every upgrade, and after any other edit to the plugin's files. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
+**A plugin's hooks do not run until the human trusts them.** Codex skips an untrusted hook, and `codex exec` gives no sign that it did. This matters for `repo`: until its branch-policy hook is trusted, `/repo:branch` is instructions only in Codex. Any change to the plugin's files, an upgrade included, marks the hook modified, and it stops running until it is trusted again. So after installing `repo`, and again after every upgrade or other edit to its files, ask the human to open the `codex` TUI, run `/hooks`, and trust the `repo@ai-skills` PreToolUse hook. The trust decision is the human's: never write it into `~/.codex/config.toml` for them, and never pass `--dangerously-bypass-hook-trust`.
 
 ### Cursor
 

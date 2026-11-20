@@ -9,7 +9,7 @@ metadata:
 
 **This skill is an enforcement guardrail, not a helper.** It fires before any branch-creating, worktree-creating, or commit-running command. Its only job is to refuse anything that violates the rules below — even if the user explicitly asks you to bypass them. It does not create branches, worktrees, or PRs for you; it validates names and current-branch state, and stops you when policy would be broken.
 
-The plugin also ships a hook that applies the same rules to Bash commands before they run (see *The hook* below). The hook and this skill enforce one policy. Follow the skill everywhere, including where the hook cannot see.
+The plugin also ships a hook that applies the same rules to Bash commands before they run (see *The hook* below). The hook and this skill enforce one policy.
 
 ## The two non-negotiable rules
 
@@ -119,10 +119,6 @@ It cannot see everything, so the rules still bind you wherever it stays silent:
 If the hook cannot run at all (no `python3`, or an internal error) it allows the command, so it never blocks unrelated work.
 
 ## What this skill deliberately does not do
-
-- It does not create branches or worktrees. It validates the name you proposed (or proposes one and asks).
-- It does not open PRs, push, or modify remote state.
-- It does not edit branch-protection rules on GitHub. (Those are configured outside Claude; this skill is the in-agent guardrail that complements them.)
 
 Branch and worktree creation is owned by `/repo:newbranch`, which invokes
 this guardrail for validation. After validation, return to that caller;

@@ -10,45 +10,114 @@ Three other cases look the same from step 1, and the loop handles them itself:
 - **Silent.** The bot has said nothing about the push at all.
 
 In each, wait out any stated limit, then ask that bot once for one review of
-the latest commit with its one-off review command. A paused bot still answers
-a one-off request, so the loop never resumes its automatic reviews: that
-setting belongs to the user.
+the latest commit with its one-off review command, which a paused bot still
+answers.
 
 The request is always incremental. `@coderabbitai review` reviews only the
 commits pushed since CodeRabbit's last review, keeping what the earlier
 reviews found. A full review of the whole PR is the user's to start, by hand
-or by telling you to: the loop never sends `@coderabbitai full review`, and
-never re-requests a bot as a reviewer on GitHub, which starts a full
-CodeRabbit review.
+or by telling you to.
 
 ## Adapters
 
 On GitHub a bot is known by its login; on GitLab by its `kind` in the bot list
-([`gitlab-bots.md`](gitlab-bots.md)). A bot that matches no row uses `generic`.
+([`gitlab-bots.md`](gitlab-bots.md)). A bot that matches no row uses the last
+one.
 
 | Bot | GitHub login / GitLab `kind` | Paused, skipped or failed | Rate-limited | One-off review |
 |---|---|---|---|---|
-| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its `CodeRabbit` check run or commit status on your latest commit (GitHub, the `coderabbit-check` query; GitLab, `gitlab-bots.md`'s `coderabbit-status` query) reads "Review paused", "Review skipped", "Incremental review skipped", "Review failed" or "Review cancelled"; or it failed without giving a reason: a run concluded `failure`, `cancelled` or `timed_out`, a GitHub status `failure` or `error`, or a GitLab status `failed` or `canceled`, whose title or description reads no phrase in this row and no outcome in [Finished, or not worth asking](#finished-or-not-worth-asking); or the `notice` query prints `paused`. | The check run or status reads "Review rate limited", or the `notice` query prints `rate-limited`. A rate limit outweighs the column before it, as [What the loop does](#what-the-loop-does) says. | `@coderabbitai review` |
-| Greptile | `greptile-apps[bot]` / `greptile` | None: it skips drafts and filtered PRs without a word, so silence is the signal. | None documented. | `@greptileai review` |
+| CodeRabbit | `coderabbitai[bot]` / `coderabbit` | Its report or notice says so, as [Reading a bot's signals](#reading-a-bots-signals) sets out. | Its report or notice says so, as for a pause. | `@coderabbitai review` |
+| Greptile | `greptile-apps[bot]` / `greptile` | None: it skips drafts and filtered PRs without a word, and on GitLab reviews only the opening of an MR unless the project's `greptile.json` adds pushes, so silence is the signal. | None documented. | `@greptileai review` |
+| GitLab Duo | none / `duo` | None known. | None known. | `/assign_reviewer @GitLabDuo` |
 | Wiz Code | `wiz-<tenant id>[bot]` / `generic` | None: its check runs appear only once a scan has finished, and a scan that times out reports passed. | None documented. | None: it has no re-scan command. |
 | any other bot | any / `generic` | None known. | None known. | None. |
 
-A bot with no one-off command gets nothing posted, and step 1's deadline
+A bot with no one-off review gets nothing posted, and step 1's deadline
 decides. Wiz Code posts check runs and a summary comment rather than a review,
 so on GitHub it reaches step 1's list only when it posts review comments.
 
-## Finished, or not worth asking
+## Reading a bot's signals
+
+A bot's report, notice, comment or note counts only when it is about your
+latest commit.
+
+On GitHub:
+
+- **The commit reached the PR** at the first check in step 1 that showed it
+  at the PR's head, or showed it again after a different head: write down
+  `date +%s` at that check, since GitHub records no time at which a commit
+  became the PR's head. For the head the PR has when the loop starts, that is
+  the loop's first check; for a commit you push, it is the check straight
+  after the push.
+- **A comment** is about your latest commit when the bot posted or edited it
+  after the commit reached the PR.
+- **A report**, CodeRabbit's check run or commit status, belongs to the
+  commit, not to the push, so every report on the commit is about it,
+  whichever push of the commit it came from, as after a force-push back to
+  it. A finished one covered this same code, and CodeRabbit does not review a
+  commit twice, so waiting for a newer one would only run to the deadline. One
+  from the earlier push that says CodeRabbit paused, skipped, failed or hit a
+  rate limit costs at most one incremental review.
+- **A notice** is about your latest commit when its `noted` is after the
+  commit's committer date, `git log -1 --format=%ct <sha>`. A bot can write
+  one before the check that first shows the commit, as on a head the PR
+  already had when the loop started, and a commit cannot reach the PR before
+  it was made. A notice about the previous head written after that date holds
+  for this push too: a pause lasts until someone resumes the bot, and a rate
+  limit's wait runs from the notice.
+
+On GitLab, the commit reached the MR at the push time
+[`gitlab-bots.md`](gitlab-bots.md) reads from the MR's diff versions. A
+report, the `coderabbit-status` query's status, is about your latest commit
+when its `set_at` is no earlier than the push time; a notice when its `noted`
+is no earlier than the push time; and a note when it starts a discussion
+after the push, as that file's `generic` query reads it. Until the push-time
+query prints a time, no report or notice is about your latest commit.
+
+CodeRabbit gives two signals. Its **report** is its newest check run or commit
+status on the commit: the [`coderabbit-check` query](#the-coderabbit-check-query)
+on GitHub, the `coderabbit-status` query in [`gitlab-bots.md`](gitlab-bots.md)
+on GitLab. Its **notice** is the comment or note in which it says it paused or
+hit a rate limit: the [`notice` query](#the-notice-query). Read a status's
+description as you read a run's title, matching the phrases below ignoring
+case, and go by them before the conclusion or state: a rate-limited review
+and, by default, a failed one both conclude `neutral`, and a commit status has
+no state for a paused or skipped review, so on GitLab CodeRabbit can report
+one as `success`. The phrases follow CodeRabbit's status-check documentation;
+their wording on GitLab is unverified.
+
+With only the report and notice about your latest commit, take the first case
+that holds:
+
+1. **Finished.** The report is a run reading "Finished" or "No files to
+   review", or a `success` status reading "Review completed", "No reviewable
+   changes" or "carried forward", as in "Prior review carried forward". It is
+   CodeRabbit's review of the commit: CodeRabbit can finish a commit without
+   posting a review when it has nothing new to say.
+2. **Working.** The report is a run `queued` or `in_progress`, or a `pending`
+   status such as "Review queued" or "Review in progress", and no notice was
+   written at or after the time it was set. A notice written since means
+   CodeRabbit stopped after it started. A queued run the query prints with an
+   empty time has not started, so every notice comes after it.
+3. **Rate-limited.** The report reads "Review rate limited", or the notice's
+   kind is `rate-limited`.
+4. **Paused, skipped or failed.** The report reads "Review paused", "Review
+   skipped", "Incremental review skipped", "Review failed" or "Review
+   cancelled", or the notice's kind is `paused`.
+5. **Not worth asking.** The report names an outcome in
+   [Not worth asking](#not-worth-asking), such as "Too many files to review".
+6. **Failed without a reason.** The report is a run concluded `failure`,
+   `cancelled` or `timed_out`, a GitHub status in state `failure` or `error`,
+   or a GitLab status `failed` or `canceled`. CodeRabbit stopped before it
+   reviewed the commit, so it counts as failed.
+7. **No report and no notice.** It is silent or still working, like any other
+   bot ([What the loop does](#what-the-loop-does)).
+8. **Any other report.** It is still pending.
+
+## Not worth asking
 
 Some outcomes are a bot's answer, not a stall, and get no request:
 
-- **Finished without a review.** CodeRabbit can finish a commit without
-  posting a review, as it does when it has nothing new to say. On GitHub its
-  `CodeRabbit` check run on your latest commit reading "Finished" or "No files
-  to review", or its `success` commit status reading "Review completed", "No
-  reviewable changes" or "carried forward", counts as its review of that
-  commit in step 1, from whichever push of the commit it came, as
-  [The `coderabbit-check` query](#the-coderabbit-check-query) says. On GitLab
-  its adapter in [`gitlab-bots.md`](gitlab-bots.md) says when it has finished.
 - **A draft.** The bots skip drafts by design. Marking the PR or MR ready is
   the user's call: STOP and raise an ERROR saying it is a draft.
 - **Too much to review, or ignored paths.** CodeRabbit's "Too many files to
@@ -61,83 +130,33 @@ Some outcomes are a bot's answer, not a stall, and get no request:
 
 ## What the loop does
 
-At each check in step 1, for each bot that has not reviewed your latest
-commit, read its adapter's signals. A signal counts only when it is about your
-latest commit: a comment or note the bot posted or edited after the commit
-reached the PR, or a check run or status on that commit. On GitHub that is
-every check run or status on the commit, from whichever push of it, as
-[The `coderabbit-check` query](#the-coderabbit-check-query) sets out, and a
-notice written after the commit was made, as below. GitLab records when each
-head reached the MR, the push time that [`gitlab-bots.md`](gitlab-bots.md)
-reads, and there a status counts only when it was set no earlier than that.
+At each check in step 1, find the case of every bot that has not reviewed your
+latest commit, and post its one-off review when its case says:
 
-GitHub records no time at which a commit became the PR's head, so on GitHub
-you time it from your own checks. Step 1 reads the PR's head at every check,
-and a commit reached the PR at the first check that showed it there, or showed
-it again after a different head: write down `date +%s` at that check. For the
-head the PR has when the loop starts, that is the loop's first check; for a
-commit you push, it is the check straight after the push. That time starts
-rule 4's 15 minutes and step 1's 30-minute deadline, and rule 4 looks for a
-comment or note since then. A bot can write a paused or rate-limit notice
-before that check, as on a head the PR already had when the loop started, so
-a notice counts as about your latest commit when its `noted` is after the
-commit's committer date, `git log -1 --format=%ct <sha>`: a commit cannot
-reach the PR before it was made. A notice about the previous head written
-after that date counts too, and still holds for this push: a pause lasts until
-someone resumes the bot, and a rate limit's wait runs from the notice.
+| Case | Post the one-off review |
+|---|---|
+| Paused, skipped or failed | Now. |
+| Rate-limited, with a wait that ends 60 minutes or less after the bot said so | At the first check after the wait ends, plus one minute. Keep checking the other bots meanwhile. |
+| Rate-limited, with no wait stated | At the first check 60 minutes after the bot said so, CodeRabbit's own advice when it gives no time. |
+| Rate-limited, with a wait that ends more than 60 minutes after the bot said so | Never: the limit outlasts the loop's wait. Step 1's deadline decides, and its WARNING or ERROR names the limit and when it ends. |
+| Silent: no report, notice, comment or note from the bot about your latest commit | At the first check 15 minutes after the commit reached the PR. |
+| Working, not worth asking, or any other | Never: step 1's deadline decides. |
 
-CodeRabbit's check run or status can say it is still working (a run `queued`
-or `in_progress`, a `pending` status) while a notice about your latest commit
-says it paused or hit a rate limit. The newer of the two decides: compare
-the notice's `noted` with when the run or status was set, the time the
-`coderabbit-check` query prints on GitHub and the status's `set_at` on
-GitLab. A notice written no earlier than the run or status was set means
-CodeRabbit stopped after it started, so the notice's kind decides as the
-rules below say; a working run or status set after the notice means it has
-started again, so it is still working and gets no request. A queued run the
-query prints with an empty time has not started, so a notice about your
-latest commit decides over it.
+A rate-limited bot is asked only once its limit is over, because a request
+posted during the limit is refused and spends the bot's one request for that
+commit. The bot said so at its notice's `noted` when it has a notice about
+your latest commit, and otherwise when its report was set: the time the
+`coderabbit-check` query prints on GitHub, the status's `set_at` on GitLab.
+Its wait ends at the notice's `until`.
 
-A rate limit outweighs a pause, skip or failure. When one of the bot's
-signals about your latest commit says it hit a rate limit and another says it
-paused, skipped or failed, with a reason or without one, it counts as
-rate-limited, so its request waits for the limit to end: one posted during
-the limit is refused, and spends the bot's one request for that commit.
+Each bot gets one request for each commit you push, whichever case it is in.
+A bot whose case has a time to post is due its request until it goes out, and
+step 1 times its deadline from the request. If the bot pauses, fails or hits a
+rate limit again after its request, send nothing more: when its deadline
+passes, step 1's WARNING or ERROR names the pause or limit so a person sees
+why.
 
-1. **Paused, skipped or failed:** post the bot's one-off command now.
-2. **Rate-limited, with a wait of 60 minutes or less:** keep checking the
-   other bots, and post the command at the first check after the wait ends
-   plus one minute.
-3. **Rate-limited, with no wait stated:** post the command at the first check
-   60 minutes after the bot said so, CodeRabbit's own advice when it gives no
-   time. The bot said so at a rate-limit notice's `noted` when one about your
-   latest commit exists, and otherwise when its rate-limited check run or
-   status was set: the time the `coderabbit-check` query prints on GitHub, the
-   status's `set_at` on GitLab.
-4. **Silent:** at the first check 15 minutes after the commit reached the PR,
-   a bot that has said nothing about this push gets the command: no check
-   run, status or notice that counts as about your latest commit, as above,
-   and no comment or note since the commit reached the PR. On GitLab this is
-   the adapter's re-trigger in [`gitlab-bots.md`](gitlab-bots.md)
-   § Re-triggers, the same request under its other name.
-
-A stated wait that ends more than 60 minutes after the bot said so is longer
-than the loop waits: post nothing, and let step 1's deadline decide, with its
-WARNING or ERROR naming the limit and when it ends.
-
-Each bot gets one one-off request for each commit you push, and on GitLab it
-is that bot's re-trigger for the cycle. A bot due a request under rules 1 to 4
-is waited for past step 1's deadline until you post the request, and then for
-30 minutes from it; after that, step 1's outcomes apply to it. If it pauses,
-fails or hits a rate limit again after the request, send nothing more: when
-the 30 minutes are up, step 1's WARNING or ERROR names the pause or limit so a
-person sees why. Every other pending bot keeps step 1's deadline, a working
-one included: a CodeRabbit run that stays `queued` or `in_progress`, or a
-`pending` status, about your latest commit, with no paused or rate-limit
-notice about that commit deciding otherwise, gets no request, and the
-deadline decides.
-
-Post the command as a new top-level comment holding exactly the text in the
+Post the request as a new top-level comment holding exactly the text in the
 bot's row, here CodeRabbit's:
 
 ```bash
@@ -148,12 +167,30 @@ glab api --hostname <host> --method POST "projects/<target_project_id>/merge_req
 The first is GitHub, the second GitLab. Say in your one-line progress which
 bot you asked and why: `asked coderabbitai[bot] for a review: paused`.
 
-The loop sends nothing else to change a bot's state: not `@coderabbitai
-resume`, which turns automatic reviews back on for every later push, not
-`full review`, which is the user's call, not `pause` or `ignore`, not a request that raises a bot's review
-tier, such as Greptile's `review this at apex`, not Wiz Code's `#wiz
-remediate`, and nothing else on the list in [`gitlab-bots.md`](gitlab-bots.md)
-§ What the loop never sends a bot, which holds on both hosts.
+## What the loop never sends a bot
+
+Every bot has commands that silence it, approve the PR or MR, or commit to
+the branch. The loop wants a clean review, not a quiet reviewer, and it owns
+the branch, so on GitHub and GitLab alike it never sends:
+
+- a command that resolves, approves, pauses, resumes or ignores:
+  `@coderabbitai resolve`, `approve`, `pause`, `resume`, an `ignore` line in
+  the PR or MR description, GitLab's `/approve` quick action. `resume` turns
+  automatic reviews back on for every later push, and that setting belongs to
+  the user.
+- a command that writes code: `@coderabbitai fix`, autofix, "fix comments",
+  GitLab Duo's "resolve with Duo", Wiz Code's `#wiz remediate`
+- `@coderabbitai full review`, or re-requesting a bot as a reviewer, which on
+  GitHub starts a full CodeRabbit review: a full review is the user's call,
+  and every review the loop asks for is incremental
+- a request that raises a bot's review tier or cost, such as Greptile's
+  `review this at apex` or `effort: plus`
+- an emoji reaction on a bot's note: Greptile, among others, learns from them
+- any quick action other than a one-off review in the [Adapters](#adapters)
+  table
+
+The replies in steps 3 and 5 start with `(ai-skills:loop)` or
+`(ai-skills:fix)` and mention nobody.
 
 ## The `coderabbit-check` query
 
@@ -195,34 +232,6 @@ fi
 A check run counts only from the `coderabbitai` app, and a commit status only
 from CodeRabbit's own account, `coderabbitai[bot]`: anyone who can write to
 the repository can set a status named `CodeRabbit`.
-
-A check run or status belongs to the commit, not to the push. When a commit
-reaches the PR again, pushed anew or force-pushed back to, the query can print
-CodeRabbit's report from its earlier push, and whatever it prints counts as
-about your latest commit. A run reading "Finished" or
-"No files to review", or a `success` status reading "Review completed", "No
-reviewable changes" or "carried forward", is CodeRabbit's review of the commit
-whenever it ran: it covered this same code, and CodeRabbit does not review a
-commit twice, so waiting for a newer one would only run to the deadline. Any
-other report is read as below and in [What the loop does](#what-the-loop-does),
-whichever push it came from. When one from the earlier push says CodeRabbit
-paused, skipped, failed or hit a rate limit, the one-off request it gets costs
-at most one incremental review, since each bot gets one request for each
-commit you push.
-
-A run still `queued` or `in_progress`, or a `pending` status, is working,
-unless a paused or rate-limit notice about your latest commit beside it
-decides otherwise, as [What the loop does](#what-the-loop-does) says. Read a
-status's description as you read a run's title, and go by it before the
-conclusion or state: a rate-limited review and, by default, a failed one both
-conclude `neutral`, and a commit status has no state for a paused or skipped
-review. A failure decides only when the title or description reads none of
-the adapter row's phrases and no outcome in
-[Finished, or not worth asking](#finished-or-not-worth-asking): a run that
-concluded `failure`, `cancelled` or `timed_out`, or a status in state
-`failure` or `error`, means CodeRabbit stopped before it reviewed the commit.
-It counts as failed, and [What the loop does](#what-the-loop-does) says when
-it gets the one-off request.
 
 ## The `notice` query
 
@@ -283,10 +292,9 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/merge_reques
       | {kind, noted, until}'
 ```
 
-`noted` tells you whether the notice is about your latest commit: on GitHub it
-must be after the commit's committer date, as
-[What the loop does](#what-the-loop-does) says, and on GitLab at or after the
-push time. For a `rate-limited` notice, `until` equal to `noted` means it gave
-no wait: use rule 3. The wait is read from the phrase after "wait" or
-"available in", as CodeRabbit words it in "Next included review available in
-35 minutes" and, in older notices, "Please wait **8 minutes and 33 seconds**".
+`noted` says whether the notice is about your latest commit, as
+[Reading a bot's signals](#reading-a-bots-signals) sets out. For a
+`rate-limited` notice, `until` equal to `noted` means it gave no wait. The
+wait is read from the phrase after "wait" or "available in", as CodeRabbit
+words it in "Next included review available in 35 minutes" and, in older
+notices, "Please wait **8 minutes and 33 seconds**".

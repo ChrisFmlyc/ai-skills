@@ -1,6 +1,6 @@
 ---
 name: aitrace
-description: Wire native PostHog AI tracing into a Mastra (TypeScript) project and validate it end to end — connector, users and sessions, errors, sampling, and a read-back confirming $ai_* traces actually landed. Slash-only: it installs dependencies and edits your Mastra instance, so type /tracing:aitrace to run it.
+description: Invoke when a Mastra (TypeScript) project needs native PostHog AI tracing wired in and validated end to end. It wires the connector, users and sessions, errors and sampling, then runs a read-back confirming $ai_* traces actually landed. It never starts on its own, because it installs dependencies and edits your Mastra instance; type /tracing:aitrace to run it.
 disable-model-invocation: true
 metadata:
   version: "0.2.1"
@@ -15,8 +15,8 @@ it works** by running the agent and reading the traces back from PostHog. The
 human should not have to know `@mastra/posthog` internals; calling the skill is
 the whole job.
 
-Bundled master code (copy these into the project — don't reinvent them; they
-encode the correct config, fail-fast checks, and helpers):
+Bundled master code, which encodes the correct config, fail-fast checks and
+helpers:
 - `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/mastra-posthog.ts` — `buildPostHogObservability()` + `withUser()` / `withSession()` / `getTraceId()`.
 - `${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts` — reads traces back from PostHog to confirm ingestion (cache-busting baked in — see lessons).
 
@@ -30,19 +30,17 @@ Delivered by the native `@mastra/posthog` connector once wired:
 | **Generations** | Automatic per `agent.generate` / `stream` — tokens, cost, latency, model, provider. No extra code. |
 | **Users** | `agent.generate(input, withUser('user-123'))` → `metadata.userId` → PostHog person (Users tab). |
 | **Sessions** | `withUser('user-123', 'session-abc')` → `metadata.sessionId` → `$ai_session_id` (Sessions). |
-| **Errors** | A generation that throws is flagged **on the trace** (`$ai_is_error` / `$ai_error`) automatically — let it propagate / rethrow after handling. ⚠️ flag lands on `$ai_trace`, NOT the child `$ai_generation` (see lessons). |
+| **Errors** | A generation that throws is flagged **on the trace** (`$ai_is_error` / `$ai_error`) automatically. ⚠️ flag lands on `$ai_trace`, NOT the child `$ai_generation` (see lessons). |
 | **Evaluations (live)** | LLM-as-judge, enabled in the PostHog UI (AI engineering → Evaluations). Server-side + sampled (0.1–100%); attaches `$ai_evaluation` to your generations. No code change. |
 
 **NOT delivered — say so plainly, never fake it:**
 - **Tool calling / message content.** `@mastra/posthog` (1.1.x) exports trace
   **metadata only** — NOT prompt/response/**tool-call** payloads. So PostHog's
   **Tools** tab and **Sentiment** stay empty and in-trace message content is not
-  shown. This is verified and **not fixable from config** (see lessons). Do not
-  wire anything claiming a populated Tools tab.
+  shown. This is verified and **not fixable from config** (see lessons).
 
-This skill is **AI tracing only**. Logs, product-analytics events, and user
-feedback are deliberately out of scope — they belong to future `tracing:*`
-skills (see "The tracing ecosystem" below). Don't sprawl into them here.
+This skill is **AI tracing only**; "The tracing ecosystem" below sets its
+boundaries.
 
 ## Preflight — confirm before touching anything
 
@@ -53,7 +51,7 @@ skills (see "The tracing ecosystem" below). Don't sprawl into them here.
 3. **Project token + region.** A PostHog **project** token (`phc_…`) and the
    matching **region host** (EU `https://eu.i.posthog.com`, US
    `https://us.i.posthog.com`, or self-host). If absent, ask the human / have
-   them add to `.env`. Never hardcode in source.
+   them add to `.env`.
 
 If any preflight fails, stop and report which — do not partially wire it.
 
@@ -100,7 +98,7 @@ Without this, traces are `anonymous`.
 
 ### 6. Errors & evaluations
 - **Errors:** let agent failures propagate (or rethrow after handling) so the
-  connector marks the trace `$ai_is_error`. Never swallow — that hides them.
+  connector marks the trace `$ai_is_error`.
 - **Evaluations:** tell the human they're enabled in PostHog's UI (AI
   engineering → Evaluations): pick a sample rate + judge prompt; `$ai_evaluation`
   then attaches to the generations you're now emitting. No code.
@@ -109,16 +107,15 @@ Without this, traces are `anonymous`.
 1. **Typecheck/build** so the wiring compiles (`npm run typecheck` / `tsc --noEmit`). Fix type errors.
 2. **Emit a trace:** run the agent once for real, ensuring the process flushes
    (`await mastra.shutdown()` on short-lived scripts — see lessons).
-3. **Read it back:**
+3. **Read it back** through the PostHog MCP if it is connected (see below),
+   otherwise with the REST script:
    ```
    POSTHOG_PERSONAL_API_KEY=phx_… POSTHOG_PROJECT_ID=<id> \
      npx tsx@4.23.15 ${CLAUDE_PLUGIN_ROOT}/resources/aitrace/validate-trace.ts
    ```
-   PASS = `$ai_generation` events found. FAIL prints the likely cause.
-4. **Prefer the PostHog MCP if connected** (see below) to confirm ingestion
-   instead of the REST script. If neither a personal key nor the MCP is
-   available, say so and tell the human to check **AI engineering → Traces** —
-   don't claim success you didn't verify.
+   PASS = `$ai_generation` events found. FAIL prints the likely cause. If
+   neither the MCP nor a personal key is available, say so and tell the human
+   to check **AI engineering → Traces** — don't claim success you didn't verify.
 
 Report: what you wired, validator PASS/FAIL, and the honest caveat
 (Tools/Sentiment/message-content not populated — connector limitation).
@@ -147,8 +144,7 @@ all signals with the deploy environment.
   it to run HogQL, inspect insights/dashboards, and debug ingestion rather than
   hand-rolling REST calls. Auth is **interactive**: call
   `mcp__posthog__authenticate`, then `mcp__posthog__complete_authentication`. In
-  headless/cron runs the MCP is often **unavailable** — fall back to the REST
-  read-back (`validate-trace.ts`, personal `phx_` key), which needs no auth flow.
+  headless/cron runs the MCP is often **unavailable**.
 - **Docs:**
   - Mastra → PostHog exporter: https://mastra.ai/docs/observability/integrations/exporters/posthog and https://posthog.com/docs/ai-observability/installation/mastra
   - Mastra tracing (sampling, metadata, tags, hideInput/Output, requestContextKeys): https://mastra.ai/docs/observability/tracing
@@ -165,8 +161,8 @@ These came from real debugging. Don't relearn them.
    response text in the trace view. Verified end-to-end: the content **is** on the
    spans right up to the exporter, then stripped in its serialize step.
    `customSpanFormatter` mutations **do not survive**, and `sensitiveDataFilter:
-   false` has **no effect**. It is *not* fixable from your config. Don't promise
-   it; don't burn time trying. (Refs: mastra-ai/mastra #14135, PR #14383.)
+   false` has **no effect**. It is *not* fixable from your config. Don't burn
+   time trying. (Refs: mastra-ai/mastra #14135, PR #14383.)
 2. **Errors flag the TRACE, not the generation.** `$ai_trace.$ai_is_error = true`
    + `$ai_error = {message}`; the child `$ai_generation` often shows
    `is_error=false`. Look at the trace.
@@ -211,7 +207,7 @@ Still unclaimed, and **not** to be folded in here: custom product events via
 
 ## When you're done
 
-Wired + typechecks + validator PASS (or an explicit "verify in the UI/MCP" if no
+Wired + typechecks + validator PASS (or an explicit "verify in the UI" if no
 read path). The human can now see traces, generations, users, sessions, errors,
 and (once enabled) evaluations in PostHog — with the tool-calling/content gap
 clearly flagged.

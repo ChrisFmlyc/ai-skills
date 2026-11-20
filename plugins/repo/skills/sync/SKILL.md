@@ -11,7 +11,7 @@ The user has just had a PR squash-merged into the default branch on GitHub, or a
 
 ## Who may invoke this
 
-Either the user typing `/repo:sync`, or a skill that owns a post-merge step and delegates to it rather than hand-rolling the equivalent git commands — `/spades:close` and `/spades:loop` are the reference cases. Delegation is the point: the whole reason this skill exists is so post-merge cleanup has exactly one implementation.
+Either the user typing `/repo:sync`, or a skill that owns a post-merge step and delegates to it rather than hand-rolling the equivalent git commands. Delegation is the point: the whole reason this skill exists is so post-merge cleanup has exactly one implementation.
 
 It is safe to delegate to because every genuinely destructive path is already refused, not automated. The skill aborts on a dirty working tree and on a detached HEAD, and it warns instead of deleting when a feature branch holds more local commits than a squash-merge would explain. Those refusals belong to the user; a caller must surface them verbatim and stop, never auto-stash, auto-discard, or retry around them.
 
@@ -56,7 +56,7 @@ If `git status --porcelain` returns ANY lines, abort:
 
 > Working tree isn't clean — uncommitted changes on `<branch>`. Commit, stash, or discard them first, then re-run `/repo:sync`.
 
-The user owns this decision. Do not auto-stash, do not auto-discard. (`--porcelain` already excludes gitignored paths, so untracked tooling dirs like `.claude/` won't show up if they're gitignored.)
+The user owns this decision. Do not auto-stash, do not auto-discard.
 
 ### 3. If already on the default branch
 
@@ -64,10 +64,6 @@ The user owns this decision. Do not auto-stash, do not auto-discard. (`--porcela
 git fetch origin --prune
 git pull --ff-only
 ```
-
-Report:
-
-> On `<DEFAULT_BRANCH>`, synced to origin (now at `<short-sha>`). No feature branch to clean up. Ready.
 
 ### 4. Otherwise (on a feature branch)
 
@@ -124,10 +120,6 @@ git pull --ff-only
 git checkout "$FEATURE_BRANCH"   # leave the user where they were
 ```
 
-Report:
-
-> `<FEATURE_BRANCH>` still has an upstream on origin — the PR likely isn't merged yet. Updated `<DEFAULT_BRANCH>` to `<short-sha>` but kept `<FEATURE_BRANCH>` checked out. If you want to abandon this branch anyway, delete it manually with `git branch -D <FEATURE_BRANCH>`. Ready.
-
 ### 4c. No upstream configured
 
 The branch was created locally and never pushed. Treat like 4b — don't delete (might be WIP), but offer the explicit-delete command. Switch to default, pull, switch back.
@@ -148,17 +140,17 @@ End with one tight summary the assistant uses as context for the next prompt. Pi
 
 **Skipped deletion (4b/4c):**
 
-> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). Ready.
+> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). If you want to abandon this branch anyway, delete it manually with `git branch -D <FEATURE_BRANCH>`. Ready.
 
 The single word "Ready." at the end is the handoff signal: the next user prompt is fresh work, not a continuation of the merged feature.
 
 ## After the skill completes
 
-The user's next prompt describes the next piece of work. Branch creation is **not** part of `/repo:sync` — it ends at `Ready.` Defer to `/repo:branch`, which auto-fires on branch-creation verbs and is the authoritative source for the required prefix list (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`, `rnd/`, `hotfix/`).
+The user's next prompt describes the next piece of work. Branch creation is **not** part of `/repo:sync` — it ends at `Ready.` Defer to `/repo:newbranch`, which creates the branch and worktree for new work.
 
 ## Why these guardrails matter
 
-- **Refuse-on-dirty**: silent stashing has cost the user uncommitted work in the past. Make them choose.
+- **Refuse-on-dirty**: silent stashing can lose the user's uncommitted work. Make them choose.
 - **`[gone]` detection, not blind deletion**: a branch with an alive upstream may be mid-review on a different machine, or an unmerged WIP. Deleting locally without that signal can lose work.
 - **`-D` after squash-merge is intentional**: `git branch -d` will refuse because squash-merge produces a different commit hash. That refusal is a feature, not a bug — but in the squash-merge case we know the work is preserved (in the squashed commit), so `-D` is the right tool.
 - **No unprompted runs**: the user runs this between PRs to deliberately reset context. An agent reaching for it on its own ("I see you've merged, let me clean up") may run before the user has reviewed remaining local state. See § Who may invoke this for the boundary.
