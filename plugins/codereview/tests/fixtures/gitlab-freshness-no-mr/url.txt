@@ -1,0 +1,1 @@
+git@gitlab.example.com:acme/sub/app.git

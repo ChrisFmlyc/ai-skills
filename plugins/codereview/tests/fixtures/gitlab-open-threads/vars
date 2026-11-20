@@ -1,0 +1,5 @@
+host=gitlab.example.com
+target_project_id=42
+iid=7
+bot-ids=101,303
+self-id=7

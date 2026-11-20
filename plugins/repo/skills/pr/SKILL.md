@@ -1,15 +1,15 @@
 ---
 name: pr
-description: Invoke immediately before opening a Pull Request (PR), before running gh pr create. /repo:pr turns the drafted title and body into a conventional-commit title that works as the squash-merge commit and changelog line, and a body that says what changed and why, then runs both through /unslop; if /unslop is not installed it stops, tells the user how to install it, and resumes once it is. It never opens the PR, never pushes, never changes code, and never returns text that has not been through /unslop.
+description: Invoke immediately before opening a Pull Request (PR) or GitLab merge request (MR), before running gh pr create or glab mr create. /repo:pr turns the drafted title and body into a conventional-commit title that works as the squash-merge commit and changelog line, and a body that says what changed and why, then runs both through /unslop; if /unslop is not installed it stops, tells the user how to install it, and resumes once it is. It never opens the PR, never pushes, never changes code, and never returns text that has not been through /unslop.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # repo:pr — title and body for a squash-merged Pull Request (PR)
 
-An agent has finished a change and is about to open a PR. Before it runs `gh pr create`, it hands you the title and body it drafted. You rewrite them and hand them back. You never open the PR yourself.
+An agent has finished a change and is about to open a PR — on GitLab, a merge request (MR), which this skill treats the same way. Before it runs `gh pr create` or `glab mr create`, it hands you the title and body it drafted. You rewrite them and hand them back. You never open the PR yourself.
 
-This skill assumes PRs are squash-merged. The title then becomes the commit subject on the default branch, and changelogs and release notes are built from those subjects. GitHub appends ` (#<PR number>)` to it at merge. Write the title for someone skimming the changelog a year from now.
+This skill assumes PRs are squash-merged. The title then becomes the commit subject on the default branch, and changelogs and release notes are built from those subjects. GitHub appends ` (#<PR number>)` to it at merge; GitLab's default squash commit message is the MR title as written. Write the title for someone skimming the changelog a year from now.
 
 ## 1. Check that /unslop is available
 
@@ -50,22 +50,45 @@ Do not run the install command yourself. The user decides what third-party code 
 
 If you were called without a title or body, there is nothing to rewrite. STOP and raise an ERROR saying no title or body was supplied.
 
-Read the diff as well. You check every claim in the draft against it. Find the default branch first, because `origin/HEAD` is not set in every clone:
+Read the diff as well. You check every claim in the draft against it, so read the diff the PR will merge: from the branch it merges into, its target, to `HEAD`. When the calling agent names the target, set `target` in the snippet below to that branch's name, such as `develop`. It names it in its request, or as the `--base` of the `gh pr create` or the `--target-branch` of the `glab mr create` it will run. Leave `target` empty when it names none; the PR then merges into the default branch.
+
+The target and the default branch belong to the repository the PR is opened in, and `remote` in the snippet is the git remote for that repository. It stays `origin` unless the PR goes from a fork into its upstream. The calling agent names that repository in its request, or as the `--repo` of the `gh pr create` or `glab mr create` it will run. When it names none and `git remote` lists more than one remote, `gh` and `glab` choose the repository themselves, and they prefer a remote named `upstream` to `origin`; `gh repo view --json url` or `glab repo view --output json` prints the one they will use. Set `remote` to the name `git remote -v` lists for that repository, such as `upstream`. If no remote points at it, tell the calling agent so and wait for it to name one.
+
+The snippet finds the default branch whether or not there is a target, because step 3 reads its history. It asks the remote first, because the remote's `HEAD` ref, such as `origin/HEAD`, is set when the repo is cloned and no fetch moves it: after the default branch is renamed it still names the old branch, and some clones have no `origin/HEAD` at all. When the remote cannot be reached, the snippet falls back to that ref, then to `gh` or `glab`. It then fetches the default branch and the target from the remote every time. A remote-tracking ref only moves when something fetches it, so one left behind by an older fetch gives a diff against commits the PR will not merge into; the fetch also creates the refs a single-branch clone lacks. When the fetch fails, as it does offline, the snippet uses the ref it already has and prints a `WARNING:` line on stderr naming the branch and the remote. The fetch reads from the remote and leaves the working tree alone:
 
 ```bash
-git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null \
-  || gh repo view --json defaultBranchRef -q '"origin/" + .defaultBranchRef.name' 2>/dev/null
+target=""
+remote=origin
+url=$(git remote get-url "$remote")
+default=$(git ls-remote --symref "$remote" HEAD 2>/dev/null | awk -v r="$remote/" '$1 == "ref:" { sub("^refs/heads/", r, $2); print $2; found = 1; exit } END { exit !found }' \
+  || git symbolic-ref --short "refs/remotes/$remote/HEAD" 2>/dev/null \
+  || gh repo view "$url" --json defaultBranchRef -q "\"$remote/\" + .defaultBranchRef.name" 2>/dev/null \
+  || glab repo view "$url" --output json 2>/dev/null | jq -r --arg r "$remote/" '.default_branch // empty | $r + .' 2>/dev/null)
+tracked() {  # refresh remote-tracking ref $1 from $remote and print it; keep the local ref, with a warning, when the fetch fails
+  [ -n "$1" ] || return 1
+  if ! git fetch --quiet "$remote" "+refs/heads/${1#"$remote/"}:refs/remotes/$1" 2>/dev/null; then
+    git rev-parse --verify --quiet "$1^{commit}" >/dev/null || return 1
+    echo "WARNING: could not fetch ${1#"$remote/"} from $remote; using the local ref $1, which may be behind the remote" >&2
+  fi
+  echo "$1"
+}
+default=$(tracked "$default")
+if [ -n "$target" ]; then base=$(tracked "$remote/${target#"$remote/"}"); else base=$default; fi
+echo "BASE=$base"
+echo "DEFAULT=$default"
 ```
 
-Call what it prints `BASE`, for example `origin/main`, and read the diff with `git diff BASE...HEAD`. If it prints nothing, do not run the diff. Tell the calling agent the default branch could not be found, and ask which branch the PR merges into. Use `origin/<that branch>` as `BASE`.
+Call the two values it prints `BASE` and `DEFAULT`, for example `origin/develop` and `origin/main`, or `upstream/develop` and `upstream/main` for a PR from a fork; without a target they are the same. Read the diff with `git diff BASE...HEAD`. If `BASE` is empty, do not run the diff. Tell the calling agent which branch could not be found on `remote`, the target it named or the default branch, and ask which branch the PR merges into. Run the snippet again with `target` set to the answer.
+
+A `WARNING:` line names a branch the snippet could not refresh. Its ref holds what the last fetch brought, which may be behind the remote, and when that branch is `BASE` the diff, and every claim you check against it, may be against an old base. Carry on with it, and pass each warning to the calling agent word for word when you hand back in step 8.
 
 ## 3. Read the repo's own rules
 
 Some repos set their own PR title rules. Look for them before you use the defaults below:
 
 - a commitlint config (`commitlint.config.*`, `.commitlintrc*`), or a workflow that checks PR titles, usually `amannn/action-semantic-pull-request`
-- `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md`
-- recent commit subjects on the default branch: `git log --format=%s -30 BASE`
+- `CONTRIBUTING.md`, and a PR template at `.github/pull_request_template.md` or an MR template under `.gitlab/merge_request_templates/`
+- recent commit subjects on the default branch: `git log --format=%s -30 DEFAULT`, or `BASE` when `DEFAULT` is empty
 
 Where the repo sets a rule, such as its own type list, required scopes, or a template with sections, follow the repo. The git log shows which scopes are in use and how they are spelled. Anything the repo leaves open comes from the rules below.
 
@@ -140,7 +163,7 @@ The reviewer is about to read the diff and wants to know what to look for.
 
 **Tell the reviewer where to look.** When the PR touches many files, name the two or three worth reading closely, and the order to read them in if order matters. If you want a particular kind of feedback, ask for it.
 
-**Link what the reader would otherwise hunt for.** Put `Fixes #42` or `Closes #42` on its own line, and GitHub closes the issue when the PR merges. A design doc or an earlier PR gets one line each, not a section.
+**Link what the reader would otherwise hunt for.** Put `Fixes #42` or `Closes #42` on its own line, and GitHub closes the issue when the PR merges; GitLab does the same when the MR merges into the default branch. A design doc or an earlier PR gets one line each, not a section.
 
 Strip all of this:
 
@@ -175,13 +198,13 @@ If `/unslop` broke one of these, put that part back from your step 4 or 5 text. 
 
 ## 8. Hand it back
 
-Return the title and body to the calling agent, and say in one line what changed, for example `retitled to fix(repo): …, dropped 4 headings and a checklist; unslop rewrote 2 sentences`.
+Return the title and body to the calling agent, and say in one line what changed, for example `retitled to fix(repo): …, dropped 4 headings and a checklist; unslop rewrote 2 sentences`. Add any `WARNING:` line the step 2 snippet printed.
 
 Then stop. The calling agent opens the PR with your text.
 
 ## Never do this
 
-- run `gh pr create`, `gh pr edit`, or any other command that writes to GitHub
+- run `gh pr create`, `gh pr edit`, `glab mr create`, `glab mr update`, or any other command that writes to GitHub or GitLab
 - push, commit, or change any file in the repo
 - run the `/unslop` install command; the user does that
 - hand back a title or body that has not been through `/unslop`

@@ -1,0 +1,7 @@
+{
+  "iid": 7,
+  "web_url": "https://gitlab.example.com/acme/sub/app/-/merge_requests/7",
+  "target_branch": "release/v1+patch",
+  "source_branch": "feat/x",
+  "state": "opened"
+}

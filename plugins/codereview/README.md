@@ -1,13 +1,38 @@
 # codereview — personal CodeRabbit helpers
 
-Two skills for working code review findings on a Pull Request (PR):
+Two skills for working code review findings on a GitHub Pull Request (PR) or a GitLab merge request (MR):
 
-- `/codereview:fix` — give it a block of findings from CodeRabbit, Greptile, or any other coding agent. It splits the block into separate findings, runs one subagent per finding, and each finding ends up either fixed in code and committed, or answered on GitHub with a comment and the thread closed. It never pushes.
+- `/codereview:fix` — give it a block of findings from CodeRabbit, Greptile, or any other coding agent. It splits the block into separate findings, runs one subagent per finding, and each finding ends up either fixed in code and committed, or answered on GitHub or GitLab with a comment and the thread closed. It never pushes.
 - `/codereview:loop` — the hands-off wrapper. It waits until every review bot on the PR has reviewed the latest push, collects the open findings, hands them to `/codereview:fix`, closes out any thread the agent left open, pushes, and cycles until the PR has no open findings left. It does no fixing itself.
 
 `/codereview:fix` can be invoked by you, by an agent, or by `/codereview:loop`. It does not go looking for findings — something hands it the text.
 
 `/codereview:loop` pushes and posts on your behalf, so it starts only two ways: you type `/codereview:loop`, or a driving skill **you** invoked delegates to it as one of its steps (`/spades:loop` Stage 7 is the reference case — your invocation of the driver is what carries the authorization down). It never fires on its own initiative just because a PR happens to have review comments on it.
+
+## GitHub and GitLab
+
+Both skills work the same way on either host. GitHub goes through `gh`; GitLab goes through `glab`, where review threads are MR discussions and every API call names the MR's host, target project and number. A link with `/-/merge_requests/` in it, or an `origin` whose host contains `gitlab`, selects GitLab; pass the MR link for a GitLab instance on any other host. GitLab nests projects in groups, so the checks that `origin` is the MR's project compare the whole path after the host, not just the last `owner/name`.
+
+GitLab marks no account as a review bot — CodeRabbit, Greptile and others post as whatever account their installer set up — so on GitLab the loop touches only the accounts you list. Pass them with the MR link, or keep them in `.codereview.yml` on the project's default branch (the loop reads it there through the API, never from the MR's own branch):
+
+```
+/codereview:loop https://gitlab.example.com/acme/app/-/merge_requests/7 --bots acme-coderabbit:coderabbit,GitLabDuo:duo
+```
+
+```yaml
+gitlab:
+  review_bots:
+    - username: acme-coderabbit
+      kind: coderabbit   # coderabbit | greptile | duo | generic
+```
+
+Each kind has an adapter for how the loop knows that bot has finished reviewing the latest push: CodeRabbit's commit status, Greptile's summary naming the head commit, or, for GitLab Duo and anything else, its newest note settling. Every other author is a person, and their threads are left alone. The loop never sends a bot a command that pauses, resolves, approves or writes code. [`skills/loop/reference/gitlab-bots.md`](skills/loop/reference/gitlab-bots.md) has the details. A draft MR stops the loop, because the bots skip drafts.
+
+A push the remote rejects — a GitLab push rule, a lapsed SAML SSO session, a protected branch, GitHub push protection — stops the loop with the remote's message; the branch is never rewritten to get past it.
+
+## Tests
+
+`tests/snippets.sh` runs every shell snippet the skills tag `<!-- snippet-test: <name> -->` against recorded `gh`, `glab` and `git` output in `tests/fixtures/`, offline: the review-time and thread queries, the bot lookup and CodeRabbit status, and both hosts' freshness checks, including forks, missing MRs, auth failures and an unencrypted remote. It needs `bash` and `jq`.
 
 ## Why there is no worktree isolation
 

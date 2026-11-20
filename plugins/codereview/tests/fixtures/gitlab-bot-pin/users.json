@@ -1,0 +1,9 @@
+[
+  {
+    "id": 101,
+    "username": "acme-coderabbit",
+    "name": "CodeRabbit",
+    "bot": false,
+    "state": "active"
+  }
+]

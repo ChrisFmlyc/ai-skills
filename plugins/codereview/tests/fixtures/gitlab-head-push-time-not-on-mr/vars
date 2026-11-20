@@ -1,0 +1,6 @@
+host=gitlab.example.com
+target_project_id=42
+iid=7
+head-sha=8f3c2a1b9d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a
+t=<t>
+z=<z>

@@ -1,0 +1,4 @@
+^gh pr view --json number,url,baseRefName --jq 	pr.json
+^git remote get-url --push origin$	url.txt
+^git fetch --quiet --no-tags git@github\.com:acme/app \+refs/heads/main:refs/codereview/pr-12-base$	empty.txt
+^git rev-list --count HEAD\.\.refs/codereview/pr-12-base$	count.txt

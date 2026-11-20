@@ -62,6 +62,12 @@ These rules are non-negotiable. If a request would violate one, stop and explain
 - Edits: bump `version` in the affected plugin's `plugin.json`.
 - Removals: delete the skill directory, bump the plugin version, and update both READMEs if the skill was listed.
 
+### When changing a GitHub or GitLab path
+
+`codereview` drives GitHub pull requests through `gh` and GitLab merge requests through `glab`, and the `repo` skills that touch a forge serve the same two hosts. A change to one host's flow — host detection, the guardrail checks, thread listing, reply and resolve, the wait for a review, the push — is weighed for the other host in the same PR. Make the matching change where the other host has that step. Where it has none, the PR description names the host and says why.
+
+Shell snippets in `codereview` that are tagged `<!-- snippet-test: <name> -->` run against recorded output in `plugins/codereview/tests/fixtures/`. Run `plugins/codereview/tests/snippets.sh` after changing one, and add or update a case for the changed behaviour on each host.
+
 ### Commit & PR conventions
 
 - Branch per change. Never commit directly to `main`. `/repo:branch` enforces this.

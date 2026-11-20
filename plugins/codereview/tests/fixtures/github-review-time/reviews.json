@@ -1,0 +1,30 @@
+[
+  {
+    "user": {
+      "login": "coderabbitai[bot]",
+      "type": "Bot"
+    },
+    "commit_id": "old999"
+  },
+  {
+    "user": {
+      "login": "alice",
+      "type": "User"
+    },
+    "commit_id": "abc123"
+  },
+  {
+    "user": {
+      "login": "greptile-apps[bot]",
+      "type": "Bot"
+    },
+    "commit_id": "abc123"
+  },
+  {
+    "user": {
+      "login": "coderabbitai[bot]",
+      "type": "Bot"
+    },
+    "commit_id": "abc123"
+  }
+]

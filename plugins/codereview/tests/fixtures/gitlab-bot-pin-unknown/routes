@@ -1,0 +1,1 @@
+^glab api (--paginate )?--hostname gitlab\.example\.com users\?username=nobody$	users.json
