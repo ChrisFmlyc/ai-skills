@@ -2,7 +2,7 @@
 name: init
 description: Invoke when the current directory needs to become a new git repo — "init this as a new repo", "set up a new repo here". /repo:init runs git init in the directory you are already in, never wrapping it in a new folder, then commits a placeholder README, wires origin (creating the repo on GitHub or GitLab if asked), and pushes main; everything after that first commit goes via a branch and a Pull Request (PR).
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # repo:init — bootstrap a new repo in the current directory
@@ -49,9 +49,9 @@ After the first commit, check `git remote get-url origin` — expect failure (no
 
 > Repo name suggestion: **`<suggested-slug>`** (from current directory `<basename>`).
 > Pick one:
-> a) Create on GitHub as `<suggested-slug>` — I'll run `gh repo create`.
-> b) Create on GitHub with a different name — reply with the slug or a short description.
-> c) Create on GitLab as `<suggested-slug>` — I'll create the project with `glab`. Say if it belongs in a group (`group/<slug>`) or on a self-managed GitLab host rather than gitlab.com.
+> a) Create on GitHub as `<suggested-slug>` and push `main` (the placeholder README commit) to it — I'll run `gh repo create --push`.
+> b) Create on GitHub with a different name and push `main` to it — reply with the slug or a short description.
+> c) Create on GitLab as `<suggested-slug>` and push `main` to it — I'll create the project with `glab`. Say if it belongs in a group (`group/<slug>`) or on a self-managed GitLab host rather than gitlab.com.
 > d) Use an existing remote — paste the URL.
 
 If no slug could be suggested, drop option (a) and the slug from option (c), and ask: "What should this repo be called? A short description is fine — I'll propose a slug."
@@ -98,7 +98,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
      | jq -r '.web_url, .ssh_url_to_repo, .http_url_to_repo'
    ```
    A 400 naming the path means the project already exists; ask for another slug.
-5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push with case 4's refspec: `git push -u origin refs/heads/main:refs/heads/main`. The user's yes to creating the project covers this push, as it does for `gh repo create --push`.
+5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push with case 4's refspec: `git push -u origin refs/heads/main:refs/heads/main`. The question offered creating the project and pushing `main` together, so the user's yes covers this push, as it does for `gh repo create --push`.
 6. Print the `web_url`.
 
 ## Forbidden in this skill
