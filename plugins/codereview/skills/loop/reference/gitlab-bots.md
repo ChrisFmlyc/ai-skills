@@ -75,7 +75,7 @@ bot.
 
 | `kind` | Review finished when | Resolves its own threads | Re-trigger |
 |---|---|---|---|
-| `coderabbit` | Its newest `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, and was set no earlier than the push, as the query below sets out. `pending` is still working. A paused or skipped review is a STOP: report it, because only a person resumes it. Any other status or description, a rate-limited review or a `success` from before the push among them, does not count as finished: use the `generic` rule, as when the head commit has no `CodeRabbit` status from the bot at all. | Yes, on its next review. | None — it reviews every push. |
+| `coderabbit` | Its newest `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, and was set no earlier than the push, as the query below sets out. `pending` is still working. A paused or skipped review is a STOP: report it, because only a person resumes it. Any other status or description, a rate-limited or failed review or a `success` from before the push among them, keeps it pending: silence never finishes it, and step 1's deadline decides. Only when the head commit has no `CodeRabbit` status from the bot at all, and the bot has posted or edited no note saying its rate limit was exceeded since the push, use the `generic` rule. | Yes, on its next review. | None — it reviews every push. |
 | `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule alone, with its re-trigger posted before silence can finish it. Its reviewer state, which GitLab Duo's Code Review Flow sets to `approved` (nothing found) or `requested_changes`, is for the report only: it can be left from an earlier head, and it explains a `requested_changes` merge status. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
 | `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
@@ -152,9 +152,17 @@ phrases, ignoring case, and take the first case that holds:
 - `pending`, such as "Review queued" or "Review in progress": still working.
 - Anything else, such as a rate-limited review, a `failure`, a `success` set
   before the push, or a `success` whose description matches none of the
-  phrases above: not finished by its status. A rate-limited review has not
-  reviewed the head commit at all. Use the `generic` rule instead, and step
-  1's deadline still applies.
+  phrases above: not finished, so CodeRabbit stays pending. A rate-limited
+  review has not reviewed the head commit at all. Silence never finishes it:
+  it waits for a later status, and if none finishes it by step 1's 30-minute
+  deadline, step 1 reports it as not having reviewed the commit.
+
+When the query prints `null`, the head commit has no `CodeRabbit` status from
+the bot. CodeRabbit can report a rate limit in a note without setting a
+status, so a note from the bot's pinned ID, posted or edited since the push,
+that says its rate limit was exceeded keeps CodeRabbit pending in the same
+way. With no status and no such note, use the `generic` rule, silence
+included.
 
 The phrases follow CodeRabbit's status-check documentation, and their wording
 on GitLab is unverified, so a description that matches none of them never
@@ -233,8 +241,10 @@ re-trigger or has none:
 
 A Greptile summary note that names an older commit keeps Greptile off the
 `generic` rule, so silence never finishes it and step 1's deadline decides.
-Each bot gets at most one re-trigger per cycle, and the loop posts nothing else
-to a bot.
+Any `CodeRabbit` status from the bot on the head commit, or a rate-limit note
+from it since the push, keeps CodeRabbit off the `generic` rule in the same
+way. Each bot gets at most one re-trigger per cycle, and the loop posts
+nothing else to a bot.
 
 ## What the loop never sends a bot
 
