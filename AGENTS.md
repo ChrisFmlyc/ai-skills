@@ -131,8 +131,9 @@ There is no CLI. The human installs through the UI:
 Give the human these commands to build the ZIP, with `<clone>` replaced by the path of their clone of this repo:
 
 ```bash
-cd <clone>/plugins/<plugin>/skills
-zip -r /tmp/<skill>.zip <skill>
+cd "<clone>/plugins/<plugin>/skills" &&
+  rm -f "/tmp/<skill>.zip" &&
+  zip -r "/tmp/<skill>.zip" "<skill>"
 ```
 
 Then tell them to upload `/tmp/<skill>.zip` via the Skills UI. Do not attempt to upload it yourself.
