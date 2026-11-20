@@ -4,7 +4,7 @@ Instructions for AI agents working with this repository.
 
 ## What this repo is
 
-`ai-skills` is a personal Claude Code plugin marketplace. It is the single source of truth for the human's skills across work and personal machines. Every plugin in `plugins/` is intended to be installable in any agent environment (Claude Code, Claude Desktop, Claude Agent SDK, Codex, Cursor) by following the per-platform procedure below.
+`ai-skills` is a personal Claude Code plugin marketplace. It is the single source of truth for the human's skills across work and personal machines. Every plugin in `plugins/` installs whole in Claude Code and Codex, and its skills install one by one in Claude Desktop, the Claude Agent SDK and Cursor, subject to the plugin-install rule in § Deployment.
 
 You will be asked to do two kinds of work in this repo:
 
@@ -100,6 +100,8 @@ Detect the platform first. Indicators:
 
 If you cannot determine the platform, ask the human.
 
+**Plugin-install rule.** A skill that reads `${CLAUDE_PLUGIN_ROOT}`, such as either `tracing` skill, uses files elsewhere in its plugin, so it needs a plugin install, which puts the whole plugin on disk: the Claude Code marketplace or Codex. The single-skill routes — the Claude Code manual fallback, the Claude Agent SDK, Claude Desktop and Cursor — install one skill folder or its `SKILL.md`, so they take only a skill whose files all sit inside that folder.
+
 ### Claude Code (CLI)
 
 Preferred path — use the marketplace:
@@ -111,7 +113,7 @@ Preferred path — use the marketplace:
 
 Then ask the human to restart Claude Code so the new slash commands register.
 
-Fallback (manual, for offline or air-gapped machines):
+Fallback (manual, for offline or air-gapped machines; a single-skill route under the plugin-install rule above):
 
 ```bash
 git clone https://github.com/ChrisFmlyc/ai-skills.git ~/code/ai-skills
@@ -128,12 +130,19 @@ There is no CLI. The human installs through the UI:
 1. Settings → Capabilities → Skills.
 2. Upload the skill as a ZIP whose root is a single folder containing `SKILL.md`.
 
+This is a single-skill route under the plugin-install rule above; the commands below stop for a skill that needs a plugin install.
+
 Give the human these commands to build the ZIP from their clone of this repo, made with the `git clone` command in the Claude Code fallback above if they have none. Replace `<clone>` with the clone's absolute path, such as `$HOME/code/ai-skills`:
 
 ```bash
 cd "<clone>/plugins/<plugin>/skills" &&
   rm -f "/tmp/<skill>.zip" &&
-  zip -r "/tmp/<skill>.zip" "<skill>"
+  if grep -rq 'CLAUDE_PLUGIN_ROOT' "<skill>"; then
+    echo "<skill> reads files outside its folder: install the <plugin> plugin instead" >&2
+    false
+  else
+    zip -r "/tmp/<skill>.zip" "<skill>"
+  fi
 ```
 
 Then tell them to upload `/tmp/<skill>.zip` via the Skills UI. Do not attempt to upload it yourself.
@@ -145,7 +154,7 @@ Skills load from `~/.claude/skills/` and `<cwd>/.claude/skills/` only when the S
 - TypeScript: `query({ ..., settingSources: ['user', 'project'] })`
 - Python: `query(..., setting_sources=["user", "project"])`
 
-Install procedure: same as Claude Code (clone + symlink into `~/.claude/skills/`). Then make sure the embedding application sets `settingSources`. If you do not control that code, surface the requirement to the human and stop.
+Install procedure: same as the Claude Code fallback (clone + symlink into `~/.claude/skills/`), a single-skill route under the plugin-install rule above. Then make sure the embedding application sets `settingSources`. If you do not control that code, surface the requirement to the human and stop.
 
 ### Codex (OpenAI CLI)
 
@@ -165,7 +174,7 @@ Update later with `codex plugin marketplace upgrade ai-skills`. On an offline or
 Cursor supports SKILL.md-style files and a rules system under `.cursor/rules/<name>.mdc`. Install:
 
 1. Clone the repo.
-2. For each desired skill, copy `plugins/<plugin>/skills/<skill>/SKILL.md` to `<project>/.cursor/rules/<skill>.mdc`. Preserve the YAML frontmatter.
+2. For each desired skill, within the plugin-install rule above (this is a single-skill route), copy `plugins/<plugin>/skills/<skill>/SKILL.md` to `<project>/.cursor/rules/<skill>.mdc`. Preserve the YAML frontmatter.
 3. If the skill's body references commands or paths specific to Claude Code (like `/plugin`), call that out — they will not work in Cursor.
 
 Cursor's plugin ecosystem is still maturing. Test the skill in a throwaway file before recommending it for daily use.
