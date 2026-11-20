@@ -119,8 +119,8 @@ glab api --paginate --hostname <host> "projects/<target_project_id>/repository/c
              else (.z[0:1] + "1" | tonumber) * ((.z[1:3] | tonumber) * 3600 + (.z[-2:] | tonumber) * 60) end);
       (if length == 0 then error("no response from glab") else add end)
       | [.[] | select(.name == "CodeRabbit" and .author.id == $bot)
-             | {id, status, description, set_at: ((.finished_at // .started_at // .created_at) | epoch)}]
-      | max_by([.set_at, .id]) | if . then del(.id) else . end'
+             | {pipeline_id, id, status, description, set_at: ((.finished_at // .started_at // .created_at) | epoch)}]
+      | max_by([.pipeline_id, .id]) | if . then del(.pipeline_id, .id) else . end'
 ```
 
 It prints the bot's newest `CodeRabbit` status on the head commit, as its
@@ -129,9 +129,14 @@ epoch; or `null` when the head commit has no `CodeRabbit` status from the
 bot's account. Anyone who can set commit statuses on the project can set one
 named `CodeRabbit`, so a status counts only when its `author.id` is the bot's
 pinned ID, as for a note. A commit holds one such status for each of its
-pipelines, so the newest is the one set last. `set_at` is the status's
-`finished_at`, which GitLab stamps when a status becomes `success`, `failed`
-or `canceled`; for any other status it is `started_at`, or else `created_at`.
+pipelines. The newest is the one on the newest pipeline, by `pipeline_id`,
+and within a pipeline the one created last, by `id`; GitLab numbers both in
+the order it creates them. When a status was set does not order them: the
+review of an earlier push can finish after the review of the latest push has
+started, and the latest review, still `pending`, is the one that counts.
+`set_at` is the status's `finished_at`, which GitLab stamps when a status
+becomes `success`, `failed` or `canceled`; for any other status it is
+`started_at`, or else `created_at`.
 
 The statuses belong to the commit, not to the push, so a commit that reaches
 the MR again, pushed anew or force-pushed back to, still carries the status
