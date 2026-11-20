@@ -78,7 +78,7 @@ bot.
 | `coderabbit` | Its newest `CodeRabbit` commit status on the head commit, set by the bot's own account, is `success` with a description saying the review is done, and was set no earlier than the push, as the query below sets out. `pending` set no earlier than the push is still working, unless the bot has written a paused or rate-limit notice since the push and no earlier than that status, as below. A paused, skipped, failed, cancelled or rate-limited review set no earlier than the push, whether its description says so or its status is `failed` or `canceled`, keeps it pending and gets a one-off review request, as the rules below and [`paused-reviews.md`](paused-reviews.md) set out. Any other status or description, any status set before the push among them, keeps it pending, and a paused or rate-limit notice the bot has posted or edited since the push gets it the request beside such a status or with no status at all, as below. Only when the head commit has no `CodeRabbit` status from the bot at all, the bot has posted or edited no such notice since the push, and the loop has not asked it for a review of this push, does a note finish it, by the `generic` rule; once the loop has asked, only a status finishes it, as below. Silence never finishes CodeRabbit: step 1's deadline decides, 30 minutes from its request once it has had one ([Re-triggers](#re-triggers)). | Yes, on its next review. | `@coderabbitai review` as a new MR note, when it has said nothing about the push 15 minutes after it ([Re-triggers](#re-triggers)). |
 | `greptile` | Its summary note names the head commit as the last one reviewed: the head commit's full SHA starts with what the `greptile` query below prints. When the query prints nothing, use the `generic` rule. | Usually, on its next review. | `@greptileai review` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)): Greptile reviews only the opening of an MR unless the project's `greptile.json` adds pushes. |
 | `duo` | The `generic` rule alone, with its re-trigger posted before silence can finish it. Its reviewer state, which GitLab Duo's Code Review Flow sets to `approved` (nothing found) or `requested_changes`, is for the report only: it can be left from an earlier head, and it explains a `requested_changes` merge status. | Never — step 3 closes its fixed threads. | `/assign_reviewer @GitLabDuo` as a new MR note, when its review has not arrived 15 minutes after the push ([Re-triggers](#re-triggers)). |
-| `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 15 minutes after that re-trigger or at step 1's deadline if sooner ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
+| `generic` | Its newest note that starts a discussion is newer than the push and stays the same across two checks in a row — a review arrives as several notes over a minute or two. Silence also finishes it, since a bot with nothing new to say may post nothing: nothing newer 15 minutes after the push, or, for a bot whose adapter has a re-trigger, nothing newer 30 minutes after that re-trigger, the wait every request gets ([Re-triggers](#re-triggers)). | Unknown — step 3 handles it. | None. |
 
 The push is when the head commit reached the MR, by GitLab's clock: the
 `created_at` of the MR diff version whose `head_commit_sha` is that commit.
@@ -299,9 +299,10 @@ re-trigger or has none:
 
 - with no re-trigger, when nothing newer than the push has come from it 15
   minutes after the push
-- once re-triggered, when nothing newer than the push has come from it 15
-  minutes after the re-trigger, or at step 1's 30-minute deadline if that comes
-  first
+- once re-triggered, when nothing newer than the push has come from it 30
+  minutes after the re-trigger: the 30 minutes from its request that
+  [`paused-reviews.md`](paused-reviews.md#what-the-loop-does) gives a bot,
+  past step 1's deadline
 
 A Greptile summary note that names an older commit keeps Greptile off the
 `generic` rule, so silence never finishes it and step 1's deadline decides.
