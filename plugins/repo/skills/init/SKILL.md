@@ -113,9 +113,9 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    - `--porcelain` makes git print a status line for `main`: a flag, a tab, `refs/heads/main:refs/heads/main`, a tab and a summary.
 4. Whatever git's exit code, read the outcome for `<push-url>`:
    - **Has the local commit**: the flag is `*` or a space (git sent it), or `=` (the URL already had it).
-   - **Did not receive the local commit**: the flag is `!` with any summary but `[remote failure]`, and the summary says why; `[rejected] (fetch first)` or `(non-fast-forward)` means the URL holds a different `main`. Or there is no status line and git's error is `The requested URL returned error: 3xx`: git refuses a redirect before it sends anything.
-   - **Uncertain**: every other result. `!` with `[remote failure]` means the remote never confirmed the update. No status line with any other error means git may have stopped after the remote accepted `main` but before it printed the result.
-5. When git refused a redirect, tell the user `<push-url>` redirects. On a pasted URL, run `git remote remove origin`, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL; on a created repo, stop without pushing. Otherwise print the summary from § Exit state.
+   - **Did not receive the local commit**: the flag is `!` with any summary but `[remote failure]`, and the summary says why; `[rejected] (fetch first)` or `(non-fast-forward)` means the URL holds a different `main`. Or there is no status line and git's error is `unable to access '…': The requested URL returned error: 3xx`: the redirect answered git's first request, which only reads the URL's refs.
+   - **Uncertain**: every other result. `!` with `[remote failure]` means the remote never confirmed the update. No status line with any other error, `RPC failed; HTTP 3xx` among them, means git may have stopped after the remote accepted `main` but before it printed the result.
+5. Print the line for the outcome from § Exit state. If git's error includes `The requested URL returned error: 3xx`, `<push-url>` redirects: say so and run `git remote remove origin`, then, on a pasted URL, ask the user for the repo's current URL, as its host shows it for cloning, and start case 4 again with that URL. Otherwise, or on a created repo, stop.
 
 ## Forbidden in this skill
 
@@ -130,7 +130,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 
 ## Exit state
 
-Branch `main` exists locally with exactly one commit (`New repo initialisation`). Print the line for the outcome § Push `main` read, with the repo's URL as `<url>`, and stop:
+Branch `main` exists locally with exactly one commit (`New repo initialisation`). The line § Push `main` step 5 prints for each outcome, with the repo's URL as `<url>`:
 
 - Has the local commit: `main → origin/main, 1 commit, repo at <url>`
 - Did not receive the local commit: `main → <push-url> did not receive the local commit: <git's summary or error>; repo at <url>`
