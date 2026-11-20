@@ -63,17 +63,17 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 3. **User types a description** (free text, not a valid slug) → propose a slug from it using the same normalisation rules. Show the proposal and confirm before running.
 4. **User pastes a URL** (starts with `https://`, `git@`, or `ssh://`; a plain `http://` URL also lands here and is refused at step 1) → **skip `gh repo create` entirely**. The URL decides where this directory's code is published, so nothing is pushed until the user has confirmed where it will go:
    1. Accept the URL only if the whole of it matches `^(https://|ssh://|git@)[A-Za-z0-9._~:/@%+-]+$`. That covers every ordinary remote URL and rules out whitespace, newlines, quotes, `$`, `;` and anything else a shell would act on. If it does not match, show it back, say which character is the problem, and ask again. An `http://` URL fails on purpose: plain HTTP sends the code and any credentials unencrypted, so ask for the `https://` or SSH form instead.
-   2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then read back the push URL git will use. `url.<base>.insteadOf` and `pushInsteadOf` rules in the user's git config can rewrite it:
+   2. Add it as one single-quoted argument after `--`, so it can never be read as an option, then list every URL git will push to. `git push` sends to each of them, and the user's git config can rewrite the URL (`url.<base>.insteadOf`, `pushInsteadOf`) or add more (`remote.origin.pushurl`, `remote.origin.url`):
       ```bash
       git remote add -- origin '<url>'
-      git remote get-url --push origin
+      git remote get-url --push --all origin
       ```
-   3. Ask: *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
+   3. Ask: *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
    4. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch:
       ```bash
       git push -u origin refs/heads/main:refs/heads/main
       ```
-   Done — print the push URL and a one-line summary.
+   Done — print the push URLs and a one-line summary.
 
 ## Cases 1–3: create on GitHub
 
@@ -104,13 +104,13 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
 
 ## Push to the created repo
 
-The question offered creating the repo and pushing `main` together, so the user's yes covers a push to the URL `origin` was added with. `url.<base>.insteadOf` and `pushInsteadOf` rules in the user's git config can send the push somewhere else, so read the push URL git will use first:
+The question offered creating the repo and pushing `main` together, so the user's yes covers a push to the URL `origin` was added with. `git push` sends to every push URL `origin` has, and the user's git config can rewrite the URL (`url.<base>.insteadOf`, `pushInsteadOf`) or add more (`remote.origin.pushurl`, `remote.origin.url`), so list every URL git will push to first:
 
 ```bash
-git remote get-url --push origin
+git remote get-url --push --all origin
 ```
 
-If it differs from the URL `origin` was added with, ask *"Push `main` to `<push-url>`?"* and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
+If it prints exactly one URL and that is the URL `origin` was added with, the user's yes already covers the push. Otherwise ask *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
 
 Then push with case 4's refspec:
 
@@ -125,7 +125,7 @@ git push -u origin refs/heads/main:refs/heads/main
 - Any form of `--force` / `-f`. Force-pushing a brand-new `main` is never warranted.
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
 - Running `gh repo create`, or creating a GitLab project, without an explicit yes from the user in their own words.
-- Pushing before the user has confirmed the push URL git reports — always for a pasted URL, and for a created repo whenever that URL differs from the one `origin` was added with.
+- Pushing before the user has confirmed every push URL git lists — always for a pasted URL, and for a created repo unless git lists exactly the one URL `origin` was added with.
 - `--no-verify`, `--no-gpg-sign`.
 
 ## Exit state
