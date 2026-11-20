@@ -148,7 +148,7 @@ End with one tight summary the assistant uses as context for the next prompt. Pi
 
 **Skipped deletion (4b/4c):**
 
-> On `<DEFAULT_BRANCH>`, synced to origin (now at `<short-sha>`). Kept `<FEATURE_BRANCH>` (upstream still exists / no upstream — not safe to delete automatically). Ready.
+> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). Ready.
 
 The single word "Ready." at the end is the handoff signal: the next user prompt is fresh work, not a continuation of the merged feature.
 
