@@ -85,7 +85,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    ```
    (Swap `--private` for `--public` if the user picked public.) This creates the GitHub repo and adds it as `origin`; `git config --get remote.origin.url` prints the URL it added.
 4. Push `main` to that URL as § Push to the created repo describes.
-5. On success, print the URL: `gh repo view --json url -q .url`.
+5. On success, print the URL: `gh repo view --json url -q .url`, with where `main` went when § Push to the created repo calls for it.
 
 ## Create on GitLab
 
@@ -100,7 +100,7 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
    ```
    A 400 naming the path means the project already exists; ask for another slug.
 5. Add the remote — `ssh_url_to_repo`, or `http_url_to_repo` when `glab config get git_protocol --host <host>` prints `https` — with the URL checks and the `git remote add -- origin '<url>'` form from case 4, then push `main` to that URL as § Push to the created repo describes.
-6. Print the `web_url`.
+6. Print the `web_url`, with where `main` went when § Push to the created repo calls for it.
 
 ## Push to the created repo
 
@@ -118,6 +118,8 @@ Then push with case 4's refspec:
 git push -u origin refs/heads/main:refs/heads/main
 ```
 
+When git listed exactly the URL `origin` was added with, `main` is on the created repo and the completion output stands as written. Otherwise `main` is on the URLs git listed, and on the created repo only if its URL is among them: wherever the completion output prints the created repo's URL, also name every URL that received `main` and say whether the created repo has it.
+
 ## Forbidden in this skill
 
 - Wrapping the new repo in a directory you created (the load-bearing rule).
@@ -130,8 +132,12 @@ git push -u origin refs/heads/main:refs/heads/main
 
 ## Exit state
 
-Branch `main` exists locally and on `origin` with exactly one commit (`New repo initialisation`). Print a one-line summary and stop:
+Branch `main` exists locally with exactly one commit (`New repo initialisation`) and on every URL git pushed it to. Print a one-line summary and stop:
 
 > `main → origin/main, 1 commit, repo at <url>`
+
+For a created repo whose push URLs were not exactly its own URL, the summary names where `main` went and whether the created repo has it:
+
+> `main → <push-urls>, 1 commit; repo at <url> has main` (or `has no main`)
 
 Everything from here goes via a branch + PR.
