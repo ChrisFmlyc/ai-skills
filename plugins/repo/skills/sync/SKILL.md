@@ -140,7 +140,7 @@ End with one tight summary the assistant uses as context for the next prompt. Pi
 
 **Skipped deletion (4b/4c):**
 
-> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). If you want to abandon this branch anyway, delete it manually with `git branch -D <FEATURE_BRANCH>`. Ready.
+> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). If you want to abandon this branch anyway, switch to `<DEFAULT_BRANCH>` and delete it manually: `git checkout <DEFAULT_BRANCH> && git branch -D <FEATURE_BRANCH>`. Ready.
 
 The single word "Ready." at the end is the handoff signal: the next user prompt is fresh work, not a continuation of the merged feature.
 
