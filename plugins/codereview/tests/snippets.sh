@@ -60,8 +60,8 @@ while IFS=$'\t' read -r re file code || [ -n "$re" ]; do
     if [ "$paginate" = no ] && [ "$(jq -s length "$f" 2>/dev/null || echo 1)" -gt 1 ]; then
       p=$(mktemp "$SCM_TMP/page.XXXXXX"); jq -c . "$f" | head -n 1 > "$p"; f=$p
     fi
-    if [ -n "$jqexpr" ]; then jq -r "$jqexpr" "$f"; else cat "$f"; fi
-    exit 0
+    if [ -n "$jqexpr" ]; then exec jq -r "$jqexpr" "$f"; fi
+    exec cat "$f"
   fi
 done < "$SCM_CASE/routes"
 echo "stub: no route for: $line" >&2
