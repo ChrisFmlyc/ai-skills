@@ -64,6 +64,18 @@ latest commit: a check run or status on that commit, or a comment or note the
 bot posted or edited after the commit reached the PR. On GitLab the commit
 reached the MR at the push time that [`gitlab-bots.md`](gitlab-bots.md) reads.
 
+CodeRabbit's check run or status can say it is still working (a run `queued`
+or `in_progress`, a `pending` status) while a notice about your latest commit
+says it paused or hit a rate limit. The newer of the two decides. On
+GitLab, compare the notice's `noted` with the status's `set_at`: a notice
+written no earlier than the status was set means CodeRabbit stopped after it
+started, so the notice's kind decides as the rules below say; a `pending`
+status set after the notice means it has started again, so it is still
+working and gets no request. On GitHub the `coderabbit-check` query gives the
+run no time, so the notice decides: asking a bot that is already working
+costs one incremental review, while waiting on one that has stopped leaves
+your commit unreviewed at the deadline.
+
 1. **Paused, skipped or failed:** post the bot's one-off command now.
 2. **Rate-limited, with a wait:** keep checking the other bots, and post the
    command at the first check after the wait ends plus one minute.
@@ -117,7 +129,9 @@ gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?check_name=CodeRabbit" \
         | [.status, (.conclusion // ""), .output.title] | @tsv'
 ```
 
-A run still `queued` or `in_progress` is working. Read the title, never the
+A run still `queued` or `in_progress` is working, unless a paused or
+rate-limit notice about your latest commit beside it decides otherwise, as
+[What the loop does](#what-the-loop-does) says. Read the title, never the
 conclusion alone: a rate-limited review and, by default, a failed one both
 conclude `neutral`.
 
