@@ -68,8 +68,9 @@ If no slug could be suggested, drop option (a) and the slug from option (c), and
       git remote add -- origin '<url>'
       git remote get-url --push --all origin
       ```
-   3. Ask: *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
-   4. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch:
+   3. If any URL it printed starts with `http://`, in any letter case, push nothing: run `git remote remove origin`, tell the user which URL is plain HTTP, that it would send the code and any credentials unencrypted, and that nothing was pushed, and stop.
+   4. Ask: *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin` and go back to the remote question.
+   5. Push, naming both ends of the refspec so a `remote.origin.push` rule in the user's git config cannot send `main` to a different branch:
       ```bash
       git push -u origin refs/heads/main:refs/heads/main
       ```
@@ -110,6 +111,8 @@ The question offered creating the repo and pushing `main` together, so the user'
 git remote get-url --push --all origin
 ```
 
+If any URL it prints starts with `http://`, in any letter case, push nothing: run `git remote remove origin`, tell the user which URL is plain HTTP, that it would send the code and any credentials unencrypted, and that the new repo was created but nothing was pushed to it, and stop.
+
 If it prints exactly one URL and that is the URL `origin` was added with, the user's yes already covers the push. Otherwise ask *"Push `main` to `<push-urls>`?"*, naming every URL it printed, and wait for a yes in the user's own words. On anything else, run `git remote remove origin`, tell the user the new repo was created but nothing was pushed to it, and stop.
 
 Then push with case 4's refspec:
@@ -128,6 +131,7 @@ When git listed exactly the URL `origin` was added with, `main` is on the create
 - Skipping the placeholder `README.md` — it is the user's chosen sentinel so the first push has content.
 - Running `gh repo create`, or creating a GitLab project, without an explicit yes from the user in their own words.
 - Pushing before the user has confirmed every push URL git lists — always for a pasted URL, and for a created repo unless git lists exactly the one URL `origin` was added with.
+- Pushing when any URL git lists starts with `http://` — plain HTTP sends the code and any credentials unencrypted, whether the user pasted that URL or their git config produced it.
 - `--no-verify`, `--no-gpg-sign`.
 
 ## Exit state
