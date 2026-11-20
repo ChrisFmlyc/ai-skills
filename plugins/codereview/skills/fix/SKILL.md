@@ -81,6 +81,7 @@ Follow these parsing rules in addition to those shown in the worked example abov
 - A finding may name more than one file. Keep all of the files associated with a work packet.
 - No `In …:` present? Identify the path from the finding text.
 - Cannot infer the file? Keep the work packet with an empty file list.
+- Each path goes on the packet's `File(s):` line, unless the fix is to create that file. A path the finding asks to be created, or one a subagent asks for in `needs-files`, goes on a `New file(s):` line when `test -e '<path>'` shows it is not on the branch yet, so Path A lets the subagent create it instead of answering `missing-files`. Run `test -e` once the path has passed the path check in *Before you start*, pasting the path between the single quotes as that check does.
 - Keep the finding text exactly as it came. Never summarise, tidy, or trim.
 - No text at all? Raise an ERROR to the caller and stop — no findings block was supplied.
 - Text supplied but no findings parsed? Raise an ERROR to the caller and stop, naming the patterns you searched for — `` In `…`: `` lines and lines starting with `-`.
@@ -585,7 +586,7 @@ Its reply or its resolve failed, and the ERROR says which: either the thread is 
 
 The files it was given are not in the repository at all. That is a parsing or targeting problem, not a finding problem — you are in the wrong repo, the `In …:` path was misread, or the file was renamed or moved after the review was written.
 
-Re-check the repo root and the path you parsed. If the path is right but absent from the branch, look for a rename before deciding the file is gone.
+Re-check the repo root and the path you parsed. A path the finding asks to be created belongs on the packet's `New file(s):` line, as the parsing rules say: move it there and send the packet out again in a later wave, under the same wave and dirty-list rules as `needs-files` below. If the path is right but absent from the branch, look for a rename before deciding the file is gone.
 
 The path came from the review text, so it is untrusted. If it contains a `'`, never paste it into a command: skip the lookup and take the Path B handoff below. Otherwise paste it between the quotes exactly as parsed:
 
@@ -608,7 +609,7 @@ esac
 
 It changed nothing; its fix reaches past the files the review named. A packet with no files always comes back this way when the finding needs a fix.
 
-Add `extra_files` to that packet and send it out again in a later wave, once no packet still in flight shares any of its files, old or new. Run each extra file through the path check in *Before you start* first, then check it with `test -e '<path>'`, pasting the path between the single quotes as that check does: put the ones that exist on the packet's `File(s):` line, and the ones that do not on a `New file(s):` line, so the subagent's first check in Path A lets it create them instead of answering `missing-files`. If one of the extra files fails the path check, or is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
+Run each of its `extra_files` through the path check in *Before you start*, add it to the packet's `File(s):` or `New file(s):` line as the parsing rules place it, and send the packet out again in a later wave, once no packet still in flight shares any of its files, old or new. If one of the extra files fails the path check, or is on the dirty list from *Before you start*, do not send it out again: finish the run, then raise the same ERROR for this finding that *Before you start* describes.
 
 A packet may ask once. If it comes back as `needs-files` a second time, raise an ERROR naming the finding and the files it asked for. A fix that keeps growing needs a person.
 
