@@ -77,8 +77,9 @@ costs one incremental review, while waiting on one that has stopped leaves
 your commit unreviewed at the deadline.
 
 1. **Paused, skipped or failed:** post the bot's one-off command now.
-2. **Rate-limited, with a wait:** keep checking the other bots, and post the
-   command at the first check after the wait ends plus one minute.
+2. **Rate-limited, with a wait of 60 minutes or less:** keep checking the
+   other bots, and post the command at the first check after the wait ends
+   plus one minute.
 3. **Rate-limited, with no wait stated:** post the command at the first check
    60 minutes after the bot said so, CodeRabbit's own advice when it gives no
    time.
@@ -93,11 +94,15 @@ than the loop waits: post nothing, and let step 1's deadline decide, with its
 WARNING or ERROR naming the limit and when it ends.
 
 Each bot gets one one-off request for each commit you push, and on GitLab it
-is that bot's re-trigger for the cycle. Until you post it, and then for 30
-minutes from the request, step 1's deadline does not apply to that bot; after
-that its outcomes do. If the bot pauses, fails or hits a rate limit again
-after the request, send nothing more: the deadline decides, and its WARNING or
-ERROR names the pause or limit so a person sees why.
+is that bot's re-trigger for the cycle. A bot due a request under rules 1 to 4
+is waited for past step 1's deadline until you post the request, and then for
+30 minutes from it; after that, step 1's outcomes apply to it. If it pauses,
+fails or hits a rate limit again after the request, send nothing more: when
+the 30 minutes are up, step 1's WARNING or ERROR names the pause or limit so a
+person sees why. Every other pending bot keeps step 1's deadline, a working
+one included: a CodeRabbit run that stays `queued` or `in_progress`, or a
+status that stays `pending`, with no paused or rate-limit notice about your
+latest commit deciding otherwise, gets no request, and the deadline decides.
 
 Post the command as a new top-level comment holding exactly the text in the
 bot's row, here CodeRabbit's:
