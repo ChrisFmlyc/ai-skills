@@ -111,7 +111,7 @@ ID:
 <!-- snippet-test: coderabbit-status -->
 ```bash
 set -o pipefail
-glab api --paginate --hostname <host> "projects/<target_project_id>/repository/commits/<head-sha>/statuses" \
+glab api --paginate --hostname <host> "projects/<target_project_id>/repository/commits/<head-sha>/statuses?all=true" \
   | jq -sc --argjson bot <id> '
       def epoch: capture("^(?<t>[0-9-]+T[0-9:]+)(\\.[0-9]+)?(?<z>Z|[+-][0-9]{2}:?[0-9]{2})$")
         | (.t + "Z" | fromdateiso8601)
@@ -128,10 +128,15 @@ status, its description and `set_at`, when it was set in seconds since the
 epoch; or `null` when the head commit has no `CodeRabbit` status from the
 bot's account. Anyone who can set commit statuses on the project can set one
 named `CodeRabbit`, so a status counts only when its `author.id` is the bot's
-pinned ID, as for a note. A commit holds one such status for each of its
-pipelines. The newest is the one on the newest pipeline, by `pipeline_id`,
-and within a pipeline the one created last, by `id`; GitLab numbers both in
-the order it creates them. When a status was set does not order them: the
+pinned ID, as for a note. `all=true` lists every status on the commit,
+retried ones included. A new status in a pipeline, from any account, marks
+the older ones of the same name in that pipeline as retried, and GitLab's
+default list leaves retried statuses out; with `all=true`, the bot's own
+status stays in the list when another account sets a `CodeRabbit` status
+beside it. A commit can hold several of the bot's `CodeRabbit` statuses,
+across its pipelines and within one. The newest is the one on the newest
+pipeline, by `pipeline_id`, and within a pipeline the one created last, by
+`id`; GitLab numbers both in the order it creates them. When a status was set does not order them: the
 review of an earlier push can finish after the review of the latest push has
 started, and the latest review, still `pending`, is the one that counts.
 `set_at` is the status's `finished_at`, which GitLab stamps when a status
@@ -158,11 +163,11 @@ phrases, ignoring case, and take the first case that holds:
   it waits for a later status, and if none finishes it by step 1's 30-minute
   deadline, step 1 reports it as not having reviewed the commit.
 
-When the query prints `null`, the head commit has no `CodeRabbit` status from
-the bot. CodeRabbit can report a rate limit in a note without setting a
-status, so a note from the bot's pinned ID, posted or edited since the push,
-that says its rate limit was exceeded keeps CodeRabbit pending in the same
-way. With no status and no such note, use the `generic` rule, silence
+When the query prints `null`, the bot has set no `CodeRabbit` status on the
+head commit, retried or current. CodeRabbit can report a rate limit in a note
+without setting a status, so a note from the bot's pinned ID, posted or
+edited since the push, that says its rate limit was exceeded keeps CodeRabbit
+pending in the same way. With no status and no such note, use the `generic` rule, silence
 included.
 
 The phrases follow CodeRabbit's status-check documentation, and their wording
