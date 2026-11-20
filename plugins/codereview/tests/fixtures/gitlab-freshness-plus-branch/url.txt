@@ -1,0 +1,1 @@
+https://chris:tok@gitlab.example.com/Acme/Sub/app.git

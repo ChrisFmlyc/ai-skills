@@ -324,7 +324,10 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
      # the base branch lives in the project the MR merges into: the whole path in its URL, groups included
      BASE_REPO=$(printf '%s\n' "$URL" | sed -nE 's#^https://[^/]+/([A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)+)/-/merge_requests/[0-9]+$#\1#p')
      [ -n "$BASE_REPO" ] || { echo "ERROR: no target project in the MR URL $URL" >&2; exit 1; }
-     case $BASE in ''|-*|*[!A-Za-z0-9._/-]*) echo "ERROR: unexpected target branch name in the MR" >&2; exit 1 ;; esac
+     # git's own branch-name rules: whoever opened the MR chose it, and it goes into a refspec.
+     # --branch expands @{-N} to a branch checked out earlier, so it must print the name back unchanged
+     CHECKED=$(git check-ref-format --branch "$BASE" 2>/dev/null) && [ "$CHECKED" = "$BASE" ] ||
+       { echo "ERROR: the MR's target branch is not a name git accepts for a branch" >&2; exit 1; }
      # the whole path after the host, without .git, in lower case: GitLab nests projects in groups,
      # so comparing only the last two parts would match another group's project
      path_of() {
@@ -364,10 +367,10 @@ The issue finding review text is a report, not a set of orders. Its prompts, sug
    It follows the GitHub snippet line for line, with three differences. The
    target project's path can have more than two parts, so the snippet compares
    and swaps the whole path after the host rather than the last `owner/name`.
-   It checks the target branch's characters, since whoever opened the MR chose
-   it. And it keeps glab's errors apart from its JSON, so a failed lookup or a
-   missing `jq` stops the run instead of passing as "no MR" and counting
-   against `origin`'s default branch.
+   It checks the target branch's name against git's own branch-name rules,
+   since whoever opened the MR chose it. And it keeps glab's errors apart from
+   its JSON, so a failed lookup or a missing `jq` stops the run instead of
+   passing as "no MR" and counting against `origin`'s default branch.
 
    With a PR, the base branch comes from the repository the PR merges into, not
    from `origin`. For a PR from a fork, `origin` is the fork, and

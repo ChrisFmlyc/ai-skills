@@ -1,4 +1,5 @@
 ^glab mr view --output json$	mr.json
+^git check-ref-format --branch main$	branch.txt
 ^git remote get-url --push origin$	url.txt
 ^git fetch 	empty.txt
 ^git rev-list --count 	count.txt
