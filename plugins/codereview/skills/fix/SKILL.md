@@ -536,11 +536,11 @@ Take this path when you determine a finding should not be fixed: either because 
 > # 1. find your thread
 > gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved path comments(first:100){totalCount nodes{databaseId body author{__typename login}}}}}}}}' -F owner=<owner> -F repo=<repo> -F pr=<number>
 >
-> # 2. post your reason
-> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>'
->
-> # 3. resolve it
-> gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -F id=<threadId>
+> # 2. post your reason, then resolve the thread: run these four lines as one command
+> gh api --method POST repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body='(ai-skills:fix) <one sentence saying why this was not fixed>' ||
+>   { echo "ERROR: the reply on thread <threadId> failed, so the thread is still open" >&2; exit 1; }
+> gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -F id=<threadId> ||
+>   { echo "ERROR: thread <threadId> has its reply but did not resolve" >&2; exit 1; }
 > ```
 >
 > On a GitLab MR the thread is a discussion:
@@ -549,11 +549,11 @@ Take this path when you determine a finding should not be fixed: either because 
 > # 1. find your discussion
 > set -o pipefail; glab api --paginate --hostname <host> "projects/<project id>/merge_requests/<iid>/discussions" | jq -s --argjson bots '[<bot ids>]' --argjson me '<self id>' '(if length == 0 then error("no response from glab") else add end) | [.[] | select(any(.notes[]; .resolvable and (.resolved | not))) | [.notes[] | select(.system | not)] as $n | {id, path: $n[0].position.new_path, note_id: $n[0].id, author: $n[0].author.username, author_id: $n[0].author.id, body: $n[0].body, by: (if ($n[0].author.id | IN($bots[])) and all($n[]; (.author.id | IN($bots[])) or (.author.id == $me and (.body | startswith("(ai-skills:")))) then "bot" else "human" end)}]'
 >
-> # 2. post your reason
-> glab api --hostname <host> --method POST "projects/<project id>/merge_requests/<iid>/discussions/<id>/notes" -f body='(ai-skills:fix) <one sentence saying why this was not fixed>'
->
-> # 3. resolve it
-> glab api --hostname <host> --method PUT "projects/<project id>/merge_requests/<iid>/discussions/<id>" -F resolved=true
+> # 2. post your reason, then resolve the discussion: run these four lines as one command
+> glab api --hostname <host> --method POST "projects/<project id>/merge_requests/<iid>/discussions/<id>/notes" -f body='(ai-skills:fix) <one sentence saying why this was not fixed>' ||
+>   { echo "ERROR: the reply on discussion <id> failed, so the discussion is still open" >&2; exit 1; }
+> glab api --hostname <host> --method PUT "projects/<project id>/merge_requests/<iid>/discussions/<id>" -F resolved=true ||
+>   { echo "ERROR: discussion <id> has its reply but did not resolve" >&2; exit 1; }
 > ```
 >
 > `<self id>` is the signed-in account's `id` from your packet. There the author is `author_id`, and your `thread_url` is the MR's URL followed by `#note_<note_id>`.
@@ -562,11 +562,15 @@ Take this path when you determine a finding should not be fixed: either because 
 >
 > - Only touch threads that a review bot opened and no person has replied in. A reply is this skill's own only when both hold: its body starts with `(ai-skills:`, and its author is the signed-in account from your packet. A thread is a bot's when its first comment is a bot's and every later comment is a bot's or this skill's own; any other reply, including an `(ai-skills:` reply from another account, is a person's. On GitHub a bot is an author whose `author.__typename` is `Bot` — GraphQL drops the `[bot]` suffix from a bot's login, so go by the type, not the name — and this skill's own reply is one whose `author.login` is the signed-in login. A comment the query did not return counts as a person's: when your thread's `comments.totalCount` is larger than the number of its `comments.nodes`, leave the thread alone and return `no-thread` with a WARNING that not every comment could be read. On GitLab the thread's `by` must be `"bot"`; each discussion carries all its notes and `--paginate` reads every page of discussions, so `by` already weighs every note. Never a person's, and never one a person has joined. With no signed-in account in your packet, or on GitLab no bot IDs, touch no thread: return `no-thread`.
 > - Only touch a thread you are sure is yours. If nothing matches, or two do, return the reason instead with a WARNING — resolving the wrong thread hides a real problem.
-> - Always comment before resolving.
+> - Always comment before resolving. The resolve runs only once the reply has posted, so a thread never closes without its answer.
 > - Start every comment you post with `(ai-skills:fix)`.
 > - One sentence, in plain English, saying what you decided and why. No code, no diffs, no line numbers — a person is reading this on GitHub or GitLab.
 >
-> Return `{ outcome: "commented", index, reason, thread_url }`, or `{ outcome: "no-thread", index, reason, first_sentence }` if you could not find it.
+> Return `{ outcome: "commented", index, reason, thread_url }`, or `{ outcome: "no-thread", index, reason, first_sentence }` if you could not find it. If the reply or the resolve prints an ERROR, stop there and return `{ outcome: "error", index, error }` with that ERROR, never `commented`.
+
+### If a subagent returns `error`
+
+Its reply or its resolve failed, and the ERROR says which: either the thread is still open with no answer, or the answer posted and the thread did not resolve. Do not send the packet out again, since a second attempt can post the same answer twice. Finish the run, then raise that ERROR, naming the finding, so a person can answer or resolve the thread by hand.
 
 ### If a subagent returns `missing-files`
 
@@ -674,7 +678,7 @@ WARNING: <what did not go to plan>.
 
 Repeat the `Finding #<n>` block(s) once per `no-thread` row. Omit either block entirely when there is nothing to report.
 
-**Done means every finding ended as `fixed`, `commented`, or `no-thread`.** Never leave one unaccounted for, and never report done while any finding is still open. A `missing-files` or `needs-files` answer is not an ending — re-target it, send it out again, or route it to Path B.
+**Done means every finding ended as `fixed`, `commented`, or `no-thread`.** Never leave one unaccounted for, and never report done while any finding is still open. A `missing-files` or `needs-files` answer is not an ending — re-target it, send it out again, or route it to Path B. An `error` answer is not one either: it ends the run in its ERROR, as *If a subagent returns `error`* says.
 
 ## Never do this
 
