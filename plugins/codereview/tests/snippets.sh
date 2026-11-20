@@ -14,8 +14,9 @@
 #             stdout, as an API error body does, and any other to stderr.
 #             A file holding several JSON documents is one page each:
 #             without `--paginate` only the first page is returned.
-#   expected  the snippet's stdout. JSON is compared after normalising each
-#             document; anything else byte for byte.
+#   expected  the snippet's stdout, empty when it prints nothing. JSON is
+#             compared after normalising each document; anything else byte
+#             for byte.
 #   rc        optional expected exit status (default 0)
 #
 # Needs bash, awk and jq. Snippets run in plain `bash -c`: the `set -o
@@ -122,7 +123,13 @@ for case in "$cases_dir"/*/; do
     echo "FAIL $id: exit $rc, expected $want_rc"; sed 's/^/  stderr: /' "$work/err"
     fail=$((fail + 1)); continue
   fi
-  if ! diff <(normalise "$case/expected") <(normalise "$work/out") > "$work/diff"; then
+  [ -f "$case/expected" ] || { echo "FAIL $id: no expected file"; fail=$((fail + 1)); continue; }
+  if ! normalise "$case/expected" > "$work/want" 2> "$work/norm-err" \
+    || ! normalise "$work/out" > "$work/got" 2> "$work/norm-err"; then
+    echo "FAIL $id: could not normalise output"; sed 's/^/  /' "$work/norm-err"
+    fail=$((fail + 1)); continue
+  fi
+  if ! diff "$work/want" "$work/got" > "$work/diff"; then
     echo "FAIL $id: output differs (< expected, > actual)"; sed 's/^/  /' "$work/diff"
     fail=$((fail + 1)); continue
   fi
