@@ -108,7 +108,7 @@ git branch -D "$FEATURE_BRANCH"
 
 If the count is conspicuously larger than the PR contained (you have local-only WIP that never got pushed), STOP and warn:
 
-> `<FEATURE_BRANCH>` has N local commits not on `<DEFAULT_BRANCH>` — that's more than I'd expect from a squash-merge. Confirm there's no unmerged work here before I delete: `git log <FEATURE_BRANCH> --not <DEFAULT_BRANCH>`. Re-run `/repo:sync` once you've checked, or delete manually with `git branch -D <FEATURE_BRANCH>`.
+> `<FEATURE_BRANCH>` has N local commits not on `<DEFAULT_BRANCH>` — that's more than I'd expect from a squash-merge. Confirm there's no unmerged work here before I delete: `git log '<FEATURE_BRANCH>' --not '<DEFAULT_BRANCH>'`. Re-run `/repo:sync` once you've checked, or delete manually with `git branch -D -- '<FEATURE_BRANCH>'`.
 
 ### 4b. Upstream still exists
 
@@ -126,7 +126,7 @@ The branch was created locally and never pushed. Treat like 4b — don't delete 
 
 ## Output format
 
-End with one tight summary the assistant uses as context for the next prompt. Pick the variant that matches what actually happened:
+End with one tight summary the assistant uses as context for the next prompt. In every command printed for the user to copy, here and in 4a's warning, each branch name goes inside single quotes, with each `'` in the name written as `'\''`, so a name holding `$(…)` or backticks reaches git as plain text. Pick the variant that matches what actually happened:
 
 **Standard post-merge reset (4a):**
 
@@ -140,7 +140,7 @@ End with one tight summary the assistant uses as context for the next prompt. Pi
 
 **Skipped deletion (4b/4c):**
 
-> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). If you want to abandon this branch anyway, switch to `<DEFAULT_BRANCH>` and delete it manually: `git checkout <DEFAULT_BRANCH> && git branch -D <FEATURE_BRANCH>`. Ready.
+> Synced `<DEFAULT_BRANCH>` to origin (now at `<short-sha>`). On `<FEATURE_BRANCH>`, kept checked out (upstream still exists / no upstream — not safe to delete automatically). If you want to abandon this branch anyway, switch to `<DEFAULT_BRANCH>` and delete it manually: `git switch -- '<DEFAULT_BRANCH>' && git branch -D -- '<FEATURE_BRANCH>'`. Ready.
 
 The single word "Ready." at the end is the handoff signal: the next user prompt is fresh work, not a continuation of the merged feature.
 
